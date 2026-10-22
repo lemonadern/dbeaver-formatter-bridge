@@ -1,0 +1,5 @@
+version: 2
+languages:
+  sql:
+    - format-command: '"/absolute/path/dbeaver-format" --workspace "/absolute/path/workspace6"'
+      format-stdin: true

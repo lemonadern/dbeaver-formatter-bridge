@@ -1,0 +1,6 @@
+version: 2
+languages:
+  sql:
+    # cmd.exe /c requires an outer pair of quotes when the executable path is quoted.
+    - format-command: '""C:\Tools\DBeaver Bridge\dbeaver-format.exe" --workspace "C:\Users\YOUR_NAME\AppData\Roaming\DBeaverData\workspace6""'
+      format-stdin: true
