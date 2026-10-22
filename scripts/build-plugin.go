@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -33,14 +34,15 @@ func buildPlugin() error {
 		return fmt.Errorf("prepare the installed DBeaver target first with scripts/prepare-target.go: %w", err)
 	}
 	uri := fileURI(target)
+	qualifier := time.Now().UTC().Format("20060102150405")
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		// Maven is a .cmd file on Windows. Expand the encoded URI exactly once,
 		// inside quotes, so cmd.exe never parses its percent escapes as variables.
-		cmd = exec.Command("cmd.exe", "/d", "/s", "/c", `mvn.cmd -B -f plugin/pom.xml "-Ddbeaver.target.uri=%DBEAVER_BRIDGE_TARGET_URI%" clean verify`)
-		cmd.Env = append(os.Environ(), "DBEAVER_BRIDGE_TARGET_URI="+uri)
+		cmd = exec.Command("cmd.exe", "/d", "/s", "/c", `mvn.cmd -B -f plugin/pom.xml "-Ddbeaver.target.uri=%DBEAVER_BRIDGE_TARGET_URI%" "-DforceContextQualifier=%DBEAVER_BRIDGE_QUALIFIER%" clean verify`)
+		cmd.Env = append(os.Environ(), "DBEAVER_BRIDGE_TARGET_URI="+uri, "DBEAVER_BRIDGE_QUALIFIER="+qualifier)
 	} else {
-		cmd = exec.Command("mvn", "-B", "-f", "plugin/pom.xml", "-Ddbeaver.target.uri="+uri, "clean", "verify")
+		cmd = exec.Command("mvn", "-B", "-f", "plugin/pom.xml", "-Ddbeaver.target.uri="+uri, "-DforceContextQualifier="+qualifier, "clean", "verify")
 	}
 	cmd.Dir = root
 	cmd.Stdin = os.Stdin
