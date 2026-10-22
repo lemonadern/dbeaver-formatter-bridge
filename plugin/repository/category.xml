@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<site>
+  <feature id="com.github.lemonadern.dbeaver.formatter.bridge.feature" version="0.0.0">
+    <category name="formatter-bridge"/>
+  </feature>
+  <category-def name="formatter-bridge" label="DBeaver Formatter Bridge"/>
+</site>

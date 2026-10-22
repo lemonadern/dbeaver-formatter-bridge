@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feature id="com.github.lemonadern.dbeaver.formatter.bridge.feature"
+         label="DBeaver Formatter Bridge" version="0.1.0.qualifier"
+         provider-name="dbeaver-formatter-bridge contributors">
+  <description>Format SQL through the formatter in a running DBeaver instance.</description>
+  <plugin id="com.github.lemonadern.dbeaver.formatter.bridge" version="0.0.0" download-size="0" install-size="0" unpack="false"/>
+</feature>
