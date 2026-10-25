@@ -119,7 +119,7 @@ try {
     # The workspace and user.home are isolated from the CI account as well.
     # Amend only the disposable vendor ini, preserving all existing JVM options.
     [IO.File]::AppendAllText((Join-Path $dbeaverHome 'dbeaver.ini'),
-        "`n-Dproduct.config.disable=true`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n-Dbridge.fixture.result=" + $fixtureResult + "`n-Dbridge.fixture.cli=" + $cli + "`n", [Text.UTF8Encoding]::new($false))
+        "`n-Dproduct.config.disable=true`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n-Dbridge.fixture.result=" + $fixtureResult + "`n-Dbridge.fixture.cli=" + ([Uri]::new($cli)).AbsoluteUri + "`n", [Text.UTF8Encoding]::new($false))
     $gui = Start-TestProcess -NativeDBeaver -Arguments @('-nosplash', '-consoleLog',
         '-data', ([Uri]::new($workspace)).AbsoluteUri)
     $ready = $false

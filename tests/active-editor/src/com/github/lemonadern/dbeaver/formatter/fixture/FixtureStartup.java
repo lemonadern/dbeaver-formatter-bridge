@@ -164,6 +164,7 @@ public final class FixtureStartup implements IStartup {
         stage = "native CLI active mode";
         String cli = System.getProperty("bridge.fixture.cli");
         require(cli != null, "bridge.fixture.cli is required");
+        if (cli.startsWith("file:")) cli = Path.of(URI.create(cli)).toString();
         Process process = new ProcessBuilder(cli, "--workspace", workspace.toString(), "--active-editor", "--indent", "  ").start();
         process.getOutputStream().write(SQL.getBytes(StandardCharsets.UTF_8));
         process.getOutputStream().close();
