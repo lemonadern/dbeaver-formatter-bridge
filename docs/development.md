@@ -38,6 +38,8 @@ DBeaver プラグインは、接続先の方言と設定を選び、DBeaver の�
 
 Node.js と npm を使います。
 開発用 Node.js は `mise.toml`、npm の開発依存は `extensions/vscode/package-lock.json` で固定します。
+VSIX 作成には Node.js 22 以上が必要で、開発環境では 24 系を使います。
+拡張自体は最低対応の VS Code 1.100.0 が内蔵する Node.js 20.19.0 で動作し、型定義も 20 系に合わせています。
 利用者には Node.js、Go、JDK の追加導入は不要ですが、CLI と DBeaver プラグインは別途必要です。
 
 リポジトリ直下から実行します。
