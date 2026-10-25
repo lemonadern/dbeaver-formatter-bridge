@@ -1,6 +1,8 @@
 # CI と配布物
 
-[GitHub Actions のワークフロー](../.github/workflows/ci.yml) は、push、pull request、手動実行でテストと配布物の作成を行います。
+[GitHub Actions のワークフロー](../.github/workflows/ci.yml) は、`main` への push、pull request、手動実行でテストと配布物の作成を行います。
+作業ブランチへの push だけでは実行せず、PR の作成・更新で検証します。
+同じ PR が更新された場合は、その PR の古い実行を自動キャンセルします。
 対象 OS とツールの版はワークフローを参照してください。
 
 ## テスト
