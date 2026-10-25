@@ -65,7 +65,9 @@ func verify(name string, writeChecksum bool) error {
 			if err != nil {
 				return err
 			}
-			if !bytes.Equal(source, contents) {
+			// Git may check text out as CRLF on Windows; preserve byte-exact
+			// license content except for that platform checkout conversion.
+			if !bytes.Equal(bytes.ReplaceAll(source, []byte("\r\n"), []byte("\n")), bytes.ReplaceAll(contents, []byte("\r\n"), []byte("\n"))) {
 				return fmt.Errorf("VSIX license mismatch: %s", entry.Name)
 			}
 		case "extension/package.json":
