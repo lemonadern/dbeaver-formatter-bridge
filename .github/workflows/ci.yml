@@ -174,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: plugin-update-site
-          path: plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip
+          path: plugin/repository/target/formatter-bridge-update-site-0.1.0.zip
           if-no-files-found: error
           retention-days: 7
       - name: Upload sanitized failure report
