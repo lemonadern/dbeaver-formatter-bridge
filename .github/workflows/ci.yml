@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cli:
+    name: CLI / ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - name: Test CLI and race detector
+        working-directory: cli
+        run: go test -race -timeout 60s ./...
+      - name: Vet CLI
+        working-directory: cli
+        run: go vet ./...
+      - name: Test build target URI rules
+        run: |
+          go test ./scripts/build-plugin.go ./scripts/build-plugin_test.go
+          go test ./scripts/prepare-target.go ./scripts/build-plugin_test.go
+      - name: Cross-build desktop binaries
+        if: runner.os == 'Linux'
+        run: go run ./scripts/build-cli.go
+
+      - name: Test distribution contents, checksums and tamper rejection
+        if: runner.os == 'Linux'
+        run: go test -v ./scripts/package-cli.go ./scripts/package-cli_test.go
+      - name: Package licensed CLI distributions
+        if: runner.os == 'Linux'
+        run: go run ./scripts/package-cli.go
+      - name: Upload licensed CLI distributions
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cli-distributions
+          path: |
+            dist/*.zip
+            dist/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-dbeaver:
+    name: Real DBeaver CE 26.2.2 / Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Record runner Maven version
+        shell: pwsh
+        run: mvn --version
+      - name: Build, install and exercise real DBeaver
+        shell: pwsh
+        run: ./scripts/ci/windows-dbeaver.ps1
+      - name: Upload licensed plugin update site
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: plugin-update-site
+          path: plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload sanitized failure report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-dbeaver-failure-report
+          path: build/ci-report.txt
+          if-no-files-found: warn
+          retention-days: 7

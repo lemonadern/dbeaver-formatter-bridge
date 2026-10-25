@@ -56,6 +56,8 @@ go run ./scripts/prepare-target.go -dbeaver-home /Applications/DBeaver.app -java
 go run ./scripts/build-plugin.go
 # Windows/macOS/Linux × amd64/arm64 を build/ へ出力する
 go run ./scripts/build-cli.go
+# ライセンスとチェックサム付き ZIP を dist/ へ出力する
+go run ./scripts/package-cli.go
 # CLI のテスト
 cd cli
 go test -race ./...
@@ -66,7 +68,15 @@ go vet ./...
 ビルド用に取得した DBeaver の JAR は更新サイトに含めません。
 [検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[構成と今後の作業](docs/development.md) も参照してください。
 
+## CI
+
+実 DBeaver を使う Windows CI と、3 OS の CLI テストを定義しています。
+GitHub 上での実行はまだ確認していません。
+[CI と配布物](docs/ci.md) を参照してください。
+
 ## ライセンス
 
-Apache-2.0。
+Copyright 2026 lemonadern。
+自作部分は Apache-2.0。
+CLI の配布 ZIP には [Go 側のライセンス表示](licenses/README.md) も含めます。
 DBeaver は別製品で、本リポジトリには DBeaver 本体・ドライバ・認証情報を含めません。

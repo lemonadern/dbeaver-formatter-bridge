@@ -60,3 +60,13 @@ GUI メニューを使った導入や DB 接続別設定の一致は、この結
 - 未接続の実接続 ID と複数プロジェクトでの ID 重複。
 - Windows/Linux の実行、efm、p2 導入・更新・削除。
 - 各 OS で日本語や空白を含む配置パス、端末の文字コード。
+
+## 配布と CI の検証
+
+[ci.md](ci.md) に実行対象と確認済みの範囲を記載しています。
+配布 ZIP の検証は 6 種類のバイナリをビルドした後に実行します。
+
+```sh
+go test -v ./scripts/package-cli.go ./scripts/package-cli_test.go
+go run ./scripts/ci/verify-site.go
+```
