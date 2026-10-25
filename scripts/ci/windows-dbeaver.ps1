@@ -54,7 +54,9 @@ try {
     if ((Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
         throw 'DBeaver archive checksum mismatch'
     }
+    $stage = 'archive extraction'
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $temp 'application')
+    $stage = 'application discovery'
     $executables = @(Get-ChildItem (Join-Path $temp 'application') -Recurse -Filter dbeaver.exe)
     if ($executables.Count -ne 1) { throw 'Expected exactly one extracted DBeaver executable' }
     $dbeaverHome = $executables[0].DirectoryName
@@ -134,7 +136,7 @@ try {
     Report 'PASS: all Windows integration stages completed'
 } catch {
     # Keep failure artifacts useful without exposing raw app output or requests.
-    Report ('FAIL: ' + $stage)
+    Report ('FAIL: ' + $stage + '; line=' + $_.InvocationInfo.ScriptLineNumber + '; type=' + $_.Exception.GetType().FullName)
     throw ('Windows integration failed during ' + $stage + '; see sanitized ci-report.txt')
 } finally {
     if ($null -ne $gui) {
