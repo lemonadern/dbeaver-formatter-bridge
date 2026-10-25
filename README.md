@@ -41,7 +41,10 @@ dbeaver-format --workspace "/path/to/workspace6" --active-editor < input.sql
 
 ## エディタとの接続
 
-[efm-langserver の設定例](examples/efm-langserver/README.md) を参照してください。
+VS Code では[専用拡張の導入と設定](extensions/vscode/README.md)を参照してください。
+ローカルにインストールできる VSIX を用意しており、PATH 上の CLI を利用します。
+
+ほかのエディタから使う場合は [efm-langserver の設定例](examples/efm-langserver/README.md) を参照してください。
 未保存のバッファを標準入力へ渡せるため、SQL ファイルを先に保存する必要はありません。
 
 ## 開発

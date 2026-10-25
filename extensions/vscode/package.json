@@ -1,0 +1,102 @@
+{
+  "name": "dbeaver-formatter-bridge",
+  "displayName": "DBeaver Formatter Bridge",
+  "description": "Format SQL through the formatter in your running DBeaver instance.",
+  "version": "0.1.0",
+  "publisher": "lemonadern",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lemonadern/dbeaver-formatter-bridge.git",
+    "directory": "extensions/vscode"
+  },
+  "engines": {
+    "vscode": "^1.100.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "Formatters"
+  ],
+  "keywords": [
+    "sql",
+    "dbeaver",
+    "formatter"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "Formatting starts a local CLI and accesses a local DBeaver workspace."
+    },
+    "virtualWorkspaces": {
+      "supported": false
+    }
+  },
+  "activationEvents": [
+    "onLanguage:sql"
+  ],
+  "main": "./out/src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "DBeaver Formatter Bridge",
+      "properties": {
+        "dbeaverFormatter.workspace": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "markdownDescription": "Absolute path to the running **DBeaver workspace**, not the VS Code project directory. Requires the Formatter Bridge plugin."
+        },
+        "dbeaverFormatter.connectionMode": {
+          "type": "string",
+          "default": "activeEditor",
+          "scope": "window",
+          "enum": [
+            "activeEditor",
+            "connection",
+            "global"
+          ],
+          "enumDescriptions": [
+            "Use the selected, connected SQL tab in DBeaver.",
+            "Use the exact connection ID below; the connection must already be connected.",
+            "Use the standard SQL dialect and DBeaver global settings."
+          ],
+          "description": "Where DBeaver obtains its SQL dialect and formatting preferences."
+        },
+        "dbeaverFormatter.connectionId": {
+          "type": "string",
+          "default": "",
+          "scope": "window",
+          "description": "Exact DBeaver connection ID. Required only in connection mode."
+        },
+        "dbeaverFormatter.timeoutMs": {
+          "type": "integer",
+          "default": 10000,
+          "minimum": 1,
+          "maximum": 120000,
+          "scope": "window",
+          "description": "DBeaver request timeout in milliseconds. The CLI process has an additional two-second shutdown allowance."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "npm run compile && node --test out/test/unit/*.test.js",
+    "test:vsix": "npm run compile && node scripts/test-vsix.mjs",
+    "vscode:prepublish": "npm run compile && node scripts/prepare-package.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.100.0",
+    "@vscode/test-electron": "3.1.0",
+    "@vscode/vsce": "4.0.0",
+    "typescript": "5.9.3"
+  },
+  "overrides": {
+    "@azure/identity": "4.13.0",
+    "uuid": "11.1.1"
+  }
+}
