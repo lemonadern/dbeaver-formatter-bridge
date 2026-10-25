@@ -1,0 +1,70 @@
+{
+  "goVersion": "go1.27.2",
+  "files": [
+    {
+      "file": "go-LICENSE.txt",
+      "source": "LICENSE (Homebrew relocates to GOROOT/../LICENSE)",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "go-PATENTS.txt",
+      "source": "PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "go-boring-LICENSE.txt",
+      "source": "src/crypto/internal/boring/LICENSE",
+      "sha256": "56210f826b8f0fbac3160dfe55c97f4019eb6cdda3963b5a0eab8a8bdb62360e"
+    },
+    {
+      "file": "go-fiat-crypto-README.txt",
+      "source": "src/crypto/internal/fips140/nistec/fiat/README",
+      "sha256": "2edb21e35fbd9a239a91dfeb724a02315aff85492aa72824bbb4ac8910da94ac"
+    },
+    {
+      "file": "go-x-crypto-LICENSE.txt",
+      "source": "src/vendor/golang.org/x/crypto/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "go-x-crypto-PATENTS.txt",
+      "source": "src/vendor/golang.org/x/crypto/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "go-x-net-LICENSE.txt",
+      "source": "src/vendor/golang.org/x/net/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "go-x-net-PATENTS.txt",
+      "source": "src/vendor/golang.org/x/net/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "go-x-sys-LICENSE.txt",
+      "source": "src/vendor/golang.org/x/sys/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "go-x-sys-PATENTS.txt",
+      "source": "src/vendor/golang.org/x/sys/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "go-x-text-LICENSE.txt",
+      "source": "src/vendor/golang.org/x/text/LICENSE",
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "go-x-text-PATENTS.txt",
+      "source": "src/vendor/golang.org/x/text/PATENTS",
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "go-source-NOTICES.txt",
+      "source": "Source comment blocks; individual source paths appear in this file",
+      "sha256": "d5a86c3f8be0376ef8b0f4b35c54c291270ce7280547cd3c777adbdffa0a4d5c"
+    }
+  ]
+}
