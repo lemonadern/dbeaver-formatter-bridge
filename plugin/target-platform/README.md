@@ -1,41 +1,42 @@
-# Installed DBeaver target platform
+# Plugin build dependencies
 
-The build compiles against the bundles from a local DBeaver installation.
-It does not build or download DBeaver itself.
+The plugin compiles against an installed DBeaver's Java libraries.
+The preparation tool copies those libraries into a local p2 repository, the dependency format used by Eclipse and DBeaver.
+Use the tool versions in [mise.toml](../../mise.toml).
+Set `JAVA_HOME` and `PATH` accordingly, or run the commands through `mise exec --`.
 
-From the repository root:
+## Build the plugin
+
+Run from the repository root:
 
 ```sh
-go run ./scripts/prepare-target.go -dbeaver-home /Applications/DBeaver.app
+go run ./scripts/prepare-target.go -dbeaver-home /path/to/dbeaver
 go run ./scripts/build-plugin.go
 ```
 
-For Windows or Linux, pass the directory containing DBeaver's `plugins/` and `features/` directories.
-The preparation tool uses `java` from `PATH`, or the executable supplied with `-java`.
-The Java runtime must be new enough to run the installed DBeaver bundles.
-The Maven build has been verified with JDK 25 and emits Java 21 bytecode.
+Pass the directory containing DBeaver's `plugins/` and `features/` directories.
+On macOS, the `.app` path is also accepted.
+The preparation tool uses `java` from `PATH`; use `-java /path/to/java` to choose another executable.
 
-The tool creates a private Equinox configuration and a local p2 repository under `plugin/target-platform/target/`.
-It does not alter the DBeaver installation or its workspaces.
-The local target contains copies of installed bundles and must not be distributed.
-The distributable `plugin/repository/target/*.zip` contains only the bridge feature and plugin.
+The plugin installation ZIP is written to `plugin/repository/target/`.
+It contains the bridge plugin, its installation metadata and licenses.
+Use this ZIP for distribution; the local dependency repository contains DBeaver's libraries.
 
-Re-run preparation after changing the DBeaver installation.
-The build helper runs Maven `clean verify` and supplies the local target URI as an explicit property.
-It encodes spaces and supports Windows drive letters and UNC paths.
-Each invocation sets the snapshot bundle and feature qualifier to the current UTC timestamp (`yyyyMMddHHmmss`).
-Rebuilding later produces a new installable version; snapshot builds are not byte-for-byte reproducible.
+## Refresh or remove dependencies
+
+Run preparation again after changing the DBeaver installation.
+Maven `clean` preserves the prepared dependencies.
+Delete `plugin/target-platform/target/` to remove them and the temporary publisher configuration.
+
+The [build helper](../../scripts/build-plugin.go) runs Maven `clean verify` and passes the local repository as an encoded file URI.
+It also gives the plugin and feature a UTC timestamp qualifier, which distinguishes later snapshot builds when installing an update.
 Builds started within the same second share a qualifier.
-Run the tools within `mise exec -- ...` to use the pinned JDK and Maven, or set `JAVA_HOME` and `PATH` yourself.
-Direct Maven invocations must supply `-Ddbeaver.target.uri=<absolute file URI>` and a fresh `-DforceContextQualifier=<UTC timestamp>`.
-Maven clean keeps the prepared target.
-Delete `plugin/target-platform/target/` to remove the local target and publisher configuration.
 
-URI rules are checked on every host with:
+To invoke Maven directly, supply `-Ddbeaver.target.uri=<absolute file URI>` and `-DforceContextQualifier=<UTC timestamp>` as the helper does.
+
+## Test path handling
 
 ```sh
 go test ./scripts/build-plugin.go ./scripts/build-plugin_test.go
 go test ./scripts/prepare-target.go ./scripts/build-plugin_test.go
 ```
-
-Windows batch invocation and real Windows/Linux DBeaver execution require those operating systems; cross-compilation alone does not verify them.

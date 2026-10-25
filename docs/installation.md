@@ -1,61 +1,89 @@
 # 導入と削除
 
-## 必要なもの
+DBeaver、DBeaver Formatter Bridge のプラグイン、CLI を用意します。
+対応する環境は [互換性](compatibility.md) を参照してください。
+エディタから使う場合は、[efm-langserver の設定例](../examples/efm/README.md) も参照してください。
 
-利用時に必要なのは、既存の DBeaver、対応 CLI、DBeaver プラグインです。
-CLI 利用者に Go・Maven・追加 JDK は必要ありません。
-efm 連携には別途 efm-langserver とエディタ側の LSP クライアントが必要です。
-検証した DBeaver は CE 26.2.2 です。
+## 配布物の取得
 
-## プラグイン
+[CI の成果物](ci.md#配布物を取得する) から、`plugin-update-site` と `cli-distributions` を取得して展開します。
+前者にはプラグイン導入用 ZIP、後者には OS と CPU ごとの CLI 配布 ZIP が入っています。
+CLI の配布 ZIP は、自分の環境に合うものを選んで展開してください。
 
-ビルドした更新サイト ZIP を DBeaver の「Help → Install New Software」から導入します。
-「Add → Archive」で ZIP を選び、「DBeaver Formatter Bridge」feature を選択して導入し、再起動してください。
-配布物は開発時点で署名していないため、その扱いは組織の導入方針に従ってください。
-更新は同じ手順で新しい ZIP を指定します。
-削除は「Help → About DBeaver → Installation Details → Installed Software」から feature を選び、「Uninstall」の後に再起動します。
-メニュー名は OS と表示言語で変わります。
-`Program Files` などへの書き込み権限や組織のポリシーにより、導入権限が必要になる場合があります。
+## DBeaver プラグイン
 
-**この手順による Windows/Linux の実機導入と、既存インストールへの更新・削除は未検証です。**
-開発時の macOS 統合検証では、本体を書き換えず、独立した一時 OSGi 構成にプラグインを追加しました。
+1. DBeaver の **Help → Install New Software** を開きます。
+2. **Add → Archive** でプラグイン導入用 ZIP を選びます。
+3. **DBeaver Formatter Bridge** を選んで導入し、DBeaver を再起動します。
+
+更新する場合も、新しい ZIP を指定して同じ手順を実行します。
+削除する場合は **Help → About DBeaver → Installation Details → Installed Software** で DBeaver Formatter Bridge を選び、**Uninstall** 後に再起動します。
+メニュー名は OS と表示言語で異なります。
 
 ## CLI
 
-`build/` の対象 OS・アーキテクチャのバイナリをコピーし、`dbeaver-format` または `dbeaver-format.exe` に改名して PATH へ配置します。
-macOS/Linux では実行権限も確認します。
-未署名の macOS バイナリの配布・公証は未整備です。
+CLI 配布 ZIP 内の `dbeaver-format`（Windows は `dbeaver-format.exe`）を PATH に配置します。
+macOS と Linux で実行権限がない場合は、`chmod +x dbeaver-format` を実行してください。
+配布済み CLI の実行に Go、Maven、追加 JDK は不要です。
 
-ワークスペースは `DBeaverData` 全体ではなく、`.metadata` ディレクトリがある `workspace6` などのディレクトリを指定します。
-DBeaver の起動引数 `-data` で変更している場合は、そのパスを使います。
-代表的な既定配置は以下ですが、自分の環境の実パスを確認してください。
+DBeaver を起動し、ワークスペースを指定して SQL を標準入力へ渡します。
 
-| OS | ワークスペースの例 |
+```sh
+dbeaver-format --workspace "/path/to/workspace6" < input.sql
+```
+
+ワークスペースには、`.metadata` ディレクトリがある場所を指定します。
+DBeaver の起動引数 `-data` で配置を変更している場合は、そのパスを使います。
+
+| OS | ワークスペースの配置例 |
 |---|---|
 | Windows | `%APPDATA%\DBeaverData\workspace6` |
 | macOS | `~/Library/DBeaverData/workspace6` |
-| Linux | `${XDG_DATA_HOME:-~/.local/share}/DBeaverData/workspace6` |
+| Linux | `$XDG_DATA_HOME/DBeaverData/workspace6`。未設定なら `~/.local/share/DBeaverData/workspace6` |
 
-CLI はこのワークスペースの `.metadata/dbeaver-instance.properties` からポートと認証情報を読みます。
-認証情報を引数や efm 設定へコピーする必要はありません。
-複数のインスタンスが登録されている場合は、誤選択を防ぐためエラーにします。
+Git Bash では、Windows 形式のパスも指定できます。
+
+```sh
+dbeaver-format.exe --workspace "C:/Users/NAME/AppData/Roaming/DBeaverData/workspace6" < input.sql
+```
+
+入力ファイルと同じファイルへ出力をリダイレクトすると、シェルが実行前にそのファイルを切り詰めます。
+保存する場合は別のファイルへ出力してください。
 
 ## 接続 ID
 
-`--connection` はワークスペース内の接続 ID を完全一致で検索します。
-DBeaver プロジェクト内の `.dbeaver/data-sources.json` では、`connections` の各キーが接続 ID です。
-このファイルには機密情報が含まれる可能性があるため、内容をログやリポジトリへコピーしないでください。
-一致する接続が複数プロジェクトにある場合はエラーにします。
-DB への自動接続はせず、指定した接続が未接続なら DBeaver で接続するよう通知します。
+接続先の SQL 方言と設定を使うには、DBeaver で接続してから `--connection ID` を指定します。
+接続 ID は DBeaver プロジェクトの `.dbeaver/data-sources.json` にある `connections` のキーで確認できます。
+表示名ではなく、この ID を完全一致で指定します。
 
-## エラー時
+```sh
+dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < input.sql
+```
 
-- インスタンス情報が読めない場合：ワークスペースと DBeaver の起動を確認します。
-- 通信できない場合：そのワークスペースで DBeaver が起動しているか確認します。
-- bridge command / compatibility エラー：プラグインの導入・再起動・対応版を確認します。
-- connection ID / disconnected エラー：指定 ID と接続状態を確認します。
-- timeout エラー：大きい入力や外部フォーマッタ設定を確認します。CLI のタイムアウトは DBeaver 内の処理を中断しません。
+同じ ID が複数プロジェクトにある場合や、指定した接続が切れている場合はエラーになります。
+接続 ID を省略した場合の設定は [README](../README.md#利用) を参照してください。
 
-入力元と同じファイルへ `> input.sql` でリダイレクトすると、シェルが実行前にファイルを切り詰めます。
-結果をファイルへ保存する場合は別ファイルを使ってください。
-Windows PowerShell 5.1 の標準入出力は UTF-8 を保証しないため、まず efm の stdin 連携か UTF-8 を設定した環境で使用してください。
+## エラーへの対処
+
+| エラーの内容 | 確認すること |
+|---|---|
+| インスタンス情報を読めない | `--workspace` のパスと、そのワークスペースでの DBeaver の起動状態 |
+| DBeaver に接続できない | DBeaver が終了していないか |
+| bridge command / compatibility | プラグインの導入、DBeaver の再起動、[対応版](compatibility.md) |
+| connection ID / disconnected | 接続 ID と DBeaver 上の接続状態 |
+| timeout | 入力サイズ、外部フォーマッタの設定、`--timeout` の値 |
+
+CLI のタイムアウトは DBeaver 内の整形処理を中断しません。
+
+## 文字コード
+
+CLI の入力は UTF-8 です。
+PowerShell からパイプで渡す場合は、外部プログラムへの入出力を UTF-8 に設定します。
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $OutputEncoding
+"select '日本語';" | dbeaver-format.exe --workspace "C:\path\to\workspace6"
+```
+
+ファイルを読む際も、そのファイルの文字コードに合わせてください。

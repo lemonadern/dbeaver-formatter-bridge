@@ -1,30 +1,32 @@
-# 互換性と検証状況
+# 互換性
 
-確認日：2026-10-25。
-実 DBeaver を含む Windows CI と、3 OS の CLI テストが GitHub 上で成功しています。
-[CI の内容と確認範囲](ci.md) を参照してください。
-この一覧は実際に確認した範囲を表し、クロスビルドだけで実機対応済みとは扱いません。
+DBeaver との連携確認の対象版は **DBeaver CE 26.2.2** です。
+下表は CLI の実行と DBeaver の整形処理への接続を分けて示します。
+「ビルドのみ」は、対象バイナリを生成できることまでを表します。
 
-| 対象 | ビルド | 実行・統合 |
-|---|---|---|
-| macOS arm64 | 成功 | DBeaver CE 26.2.2 GUI、CLI、efm 0.0.57 の連携を確認 |
-| macOS amd64 | 成功 | 未確認 |
-| Windows amd64 | 成功 | CI で CE 26.2.2 の p2 導入・GUI・CLI・PowerShell・Git Bash を確認 |
-| Windows arm64 | 成功 | 未確認 |
-| Linux amd64 / arm64 | 成功 | amd64 の CLI テストは CI で成功。実 DBeaver 連携と arm64 実行は未確認 |
-| DBeaver CE 26.2.2 | Tycho ビルド成功 | macOS の一時構成で動作確認 |
-| その他の DBeaver 版・商用版 | 未確認 | 未確認 |
+| OS / CPU | CLI | DBeaver との連携 | efm-langserver との連携 |
+|---|---|---|---|
+| Windows amd64 | CI で実行 | CI で導入、GUI 起動、整形を確認 | 未確認 |
+| Windows arm64 | ビルドのみ | 未確認 | 未確認 |
+| macOS arm64 | 実行を確認 | GUI 起動と整形を確認 | 確認済み |
+| macOS amd64 | ビルドのみ | 未確認 | 未確認 |
+| Linux amd64 | CI で実行 | 未確認 | 未確認 |
+| Linux arm64 | ビルドのみ | 未確認 | 未確認 |
 
-ビルド時の依存はインストール済み CE 26.2.2（build 202610041844）から用意しました。
-Maven 3.10.0、Tycho 5.0.4、Temurin 25.0.4.1、Go 1.27.2 を使用しています。
-プラグインのバイトコードは Java 21 です。
+Windows の CLI は PowerShell と Git Bash からの UTF-8 入力、空白と日本語を含むパスを検証対象に含みます。
+CLI の実行に Go、Java、MinGW の追加インストールは不要です。
+DBeaver 側は製品の Java を使用します。
 
-macOS では一時 p2 環境で、正式な director 処理による導入、ZIP からの新版への更新、削除を確認しました。
-既存 DBeaver の GUI メニューからの導入・更新・削除は未確認です。
+## 整形結果の確認範囲
 
-確認済みの詳細なケースと再実行方法は [testing.md](testing.md) を参照してください。
-対象 DB を指定した実接続の方言・接続別設定と GUI エディタの一致、p2 ZIP による通常インストール、更新・削除、通常の Windows 利用環境、Linux の実 DBeaver 連携、専用エディタの LSP クライアントは今後の検証対象です。
-標準 SQL 方言での成功を各 DB 方言の対応完了とは扱いません。
+統合テストは標準 SQL 方言を使います。
+実 DB 接続ごとの方言や整形設定と、DBeaver エディタの結果の比較は確認範囲に含んでいません。
 
-改行は DBeaver のフォーマッタが返した結果をそのまま使います。
-入力が CRLF でも同じ改行形式を維持する保証はなく、macOS の検証結果では LF になりました。
+改行は DBeaver のフォーマッタの出力に従います。
+入力が CRLF でも、出力が LF になる場合があります。
+
+## DBeaver の版との関係
+
+連携には DBeaver の内部 API を使います。
+DBeaver を更新する際は、プラグインのビルドと [統合テスト](testing.md#cli-と-dbeaver-の統合テスト) で動作を確認してください。
+CI が使用する版は [Windows テストスクリプト](../scripts/ci/windows-dbeaver.ps1) に定義しています。

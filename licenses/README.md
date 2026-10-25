@@ -1,23 +1,29 @@
-# CLI binary third-party materials
+# CLI third-party licenses
 
-These files accompany the Go 1.27.2 CLI binaries, alongside the project's root `LICENSE` and `COPYRIGHT`.
-The CLI does not bundle DBeaver, Java, efm-langserver, or a Go compiler.
+This directory contains the third-party license materials distributed with the CLI archives.
+The project's own terms and copyright attribution are in the root `LICENSE` and `COPYRIGHT`.
 
-The six default builds use `CGO_ENABLED=0`, no custom build tags, and the default Go experiment/FIPS configuration.
-`go list -deps` was inspected for Windows, macOS, and Linux on amd64 and arm64.
-The standard library dependency closure includes the vendored `golang.org/x/crypto`, `x/net`, `x/sys`, and `x/text` packages.
-Their unmodified LICENSE and PATENTS files are included separately, as are Go's own LICENSE and PATENTS.
-Homebrew places the Go root LICENSE one directory above GOROOT; the retained text is from that installed Go 1.27.2 distribution.
+## License inventory
 
-`go-source-NOTICES.txt` retains source comment notice blocks for the Go math library (Sun fdlibm and Stephen Moshier/Cephes), amd64 runtime memmove (Lucent/Vita Nuova), fiat-crypto generated arithmetic, and the public-domain AES implementation.
-`go-fiat-crypto-README.txt` retains the additional Fiat Cryptography attribution and license accompanying the generated nistec arithmetic.
-These notices are included for the union of all six targets, including source routines that the linker may remove from a particular executable.
+| Files | Covered materials |
+|---|---|
+| `go-LICENSE.txt`, `go-PATENTS.txt` | Go runtime and standard library |
+| `go-x-*-LICENSE.txt`, `go-x-*-PATENTS.txt` | Standard-library vendored `golang.org/x/crypto`, `x/net`, `x/sys`, and `x/text` |
+| `go-source-NOTICES.txt` | Source notices for Sun fdlibm and Stephen Moshier/Cephes math routines, Lucent/Vita Nuova amd64 memmove, fiat-crypto arithmetic, and public-domain AES code |
+| `go-fiat-crypto-README.txt` | Fiat Cryptography attribution and license for generated nistec arithmetic |
+| `go-boring-LICENSE.txt` | Upstream license accompanying Go's BoringSSL integration |
 
-The dependency closure includes `crypto/internal/boring` Go wrappers/stubs and the Go FIPS implementation.
-The default CGO-disabled builds do not select the BoringSSL `.syso` implementation, but the full upstream `go-boring-LICENSE.txt` is retained as additional provenance.
-Fiat Cryptography notices used by Go FIPS arithmetic are retained regardless of whether FIPS mode is enabled.
-This does not describe or certify the application as a validated FIPS module.
+The inventory covers Windows, macOS, and Linux on amd64 and arm64.
+Archives include the combined notices for all six targets, including routines that the linker may remove from an individual executable.
+Go's FIPS arithmetic uses fiat-crypto notices included here.
+The default CGO-disabled builds select Go wrappers and stubs from `crypto/internal/boring`, but not the BoringSSL `.syso` implementation.
+The BoringSSL license is retained as supplementary upstream material.
 
-`manifest.json` records the source locations and SHA-256 hashes of the retained upstream texts.
-The packaging script checks these hashes and rejects binaries with a different Go version, external modules, CGO enabled, custom tags/experiments, or non-default FIPS build settings.
-Changing the Go version or build configuration requires reviewing this inventory again.
+## Packaging checks
+
+[`manifest.json`](manifest.json) records the Go version, source locations, and SHA-256 hashes of the retained upstream texts.
+[`scripts/package-cli.go`](../scripts/package-cli.go) verifies those hashes and checks each binary's embedded build information before packaging.
+Accepted binaries use the inventoried Go version, `CGO_ENABLED=0`, no external modules or custom build tags, and the default experiment and FIPS build settings.
+
+Review this inventory when changing the Go version or build configuration.
+The upstream license texts and their hashes must be updated together.

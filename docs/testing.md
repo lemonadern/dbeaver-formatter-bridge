@@ -1,31 +1,44 @@
-# 検証
+# テストの実行
 
-CLI の単体テストは `cli/` で実行します。
-HTTP テストはローカルのテスト用リスナーを使用します。
+以下のコマンドは、リポジトリ直下で実行します。
+必要な開発ツールは [README](../README.md#開発) を参照してください。
+
+## CLI の単体テスト
 
 ```sh
-go test -race -timeout 30s ./...
-go vet ./...
+go -C cli test -race -timeout 30s ./...
+go -C cli vet ./...
 ```
 
-認証、リダイレクト拒否、プロキシ不使用、タイムアウト、JSON 検証、Java properties、UTF-8、入力上限、失敗時の空の標準出力を検証します。
-プラグインのビルドはリポジトリ直下で `go run ./scripts/build-plugin.go` を実行します。
+インスタンス情報の読み取り、認証、HTTP 通信、タイムアウト、JSON、UTF-8、入力上限、失敗時の標準出力を検証します。
+HTTP テストにはローカルのテスト用サーバーを使います。
+
+## ビルド用パスのテスト
+
+```sh
+go test ./scripts/build-plugin.go ./scripts/build-plugin_test.go
+go test ./scripts/prepare-target.go ./scripts/build-plugin_test.go
+```
+
+Windows のドライブと UNC パス、空白、日本語を含むパスの URI 変換を検証します。
 
 ## CLI と DBeaver の統合テスト
 
-プラグインを読み込んだ DBeaver に対して実行します。
-日本語・絵文字・引用符・バックスラッシュ、LF/CRLF、空入力、接続 ID 不明、タイムアウト、並行したインデント指定を検証します。
-DBeaver の設定は変更しません。
+プラグインを導入した DBeaver を起動し、CLI をビルドしてから実行します。
 
 ```sh
 go run ./scripts/test-bridge.go --cli /absolute/path/dbeaver-format --workspace /absolute/path/workspace6
 ```
 
-## efm を含む統合テスト
+文字列中の日本語、絵文字、引用符、バックスラッシュ、LF/CRLF、空入力、接続 ID 不明、タイムアウトを検証します。
+異なるインデントを指定した並行要求について、単独実行の結果との一致も確認します。
 
-対象の DBeaver にプラグインを読み込ませ、GUI として起動した後に実行します。
-この検証用スクリプトは POSIX シェル用です。
-Windows の検証は別途必要です。
+手動で入力する SQL の例には [strings.sql](../tests/fixtures/strings.sql) を使えます。
+
+## efm-langserver の統合テスト
+
+この検証スクリプトは macOS と Linux のシェル向けです。
+プラグインを導入した DBeaver と、CLI、efm-langserver を用意して実行します。
 
 ```sh
 go run ./scripts/test-efm.go \
@@ -34,46 +47,26 @@ go run ./scripts/test-efm.go \
   --workspace /absolute/path/workspace6
 ```
 
-スクリプトは SQL の直接 CLI 出力を基準に、実 efm に initialize、didOpen、textDocument/formatting を送り、未保存の SQL が同じ結果になることを確認します。
-存在しないワークスペースによる CLI 失敗時に、efm が編集を返さないことも確認します。
-エディタの画面操作を代替するテストではなく、efm までの LSP 経路の検証です。
+実際の efm-langserver へ LSP の初期化、文書を開く通知、整形要求を送り、未保存の SQL の整形結果を CLI の直接出力と比較します。
+CLI が失敗した場合に、文書への編集が返らないことも確認します。
 
-実機確認では、個人の設定を避けるため一時ワークスペースと一時 OSGi 構成を使用しました。
-インストール済み DBeaver のコードと GUI を使っていますが、通常インストールに ZIP を導入する手順の検証とは区別します。
+## 配布物のテスト
 
-## 2026-10-23 の結果
-
-CLI 単体テスト・race 検出・vet、URI のパステスト、Tycho ビルド、6 種類の CLI クロスビルドが成功しました。
-macOS arm64 の GUI に対する `test-bridge.go` と実 efm 0.0.57 に対する `test-efm.go` が成功しました。
-空白・日本語を含む CLI の配置とワークスペース指定でも、同じ統合テストが成功しました。
-並行整形は、各インデントを指定した単独実行と結果が一致することを確認しています。
-
-p2 director では、既存 DBeaver を変更せず、一時環境への導入、更新サイト ZIP を使った旧修飾子から新修飾子への更新、削除を確認しました。
-配布 ZIP は独自 bundle・feature と p2 メタデータだけを含み、DBeaver 本体の JAR を含みません。
-GUI メニューを使った導入や DB 接続別設定の一致は、この結果には含めません。
-
-手動入力例には `tests/fixtures/strings.sql` を使用できます。
-
-## まだ必要な確認
-
-- 対象 DB の接続済み ID、方言、接続別設定と GUI エディタの整形結果の一致。
-- 未接続の実接続 ID と複数プロジェクトでの ID 重複。
-- 通常の Windows 利用環境での efm、p2 更新・削除。Windows CI の導入と整形は確認済み。
-- Linux の実 DBeaver 連携、efm、p2 導入・更新・削除。
-- 各 OS で日本語や空白を含む配置パス、端末の文字コード。
-
-## 配布と CI の検証
-
-[ci.md](ci.md) に実行対象と確認済みの範囲を記載しています。
-配布 ZIP の検証は 6 種類のバイナリをビルドした後に実行します。
+CLI 配布物の検証には、各 OS 向けのバイナリが必要です。
 
 ```sh
+go run ./scripts/build-cli.go
 go test -v ./scripts/package-cli.go ./scripts/package-cli_test.go
+```
+
+配布 ZIP の実行ファイル、ライセンス文書、実行権限、チェックサムを検証します。
+ライセンス文書の改変や異なるビルド設定のバイナリを、パッケージングが拒否することも確認します。
+
+プラグイン ZIP の検査は、プラグインをビルドした後に実行します。
+
+```sh
 go run ./scripts/ci/verify-site.go
 ```
 
-## 2026-10-25 の GitHub Actions 結果
-
-[実行 40184924311](https://github.com/lemonadern/dbeaver-formatter-bridge/actions/runs/40184924311) は全 4 ジョブ成功しました。
-Windows x64 では、p2 導入後の公式 DBeaver GUI と CLI の実整形、PowerShell・Git Bash の UTF-8 入力、空白・日本語パスを確認しました。
-対象は CE 26.2.2 の標準 SQL 方言で、実 DB 接続別の設定や Windows 上の efm はこのテストに含みません。
+導入用 ZIP にプラグインとインストール単位の JAR があり、両方に LICENSE と COPYRIGHT が含まれることを検証します。
+自動実行するテストと成果物の取得方法は [CI](ci.md) を参照してください。

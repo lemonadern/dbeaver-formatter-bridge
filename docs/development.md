@@ -1,27 +1,34 @@
-# 構成と今後の作業
+# リポジトリ構成
 
-- `cli/`：Go 標準ライブラリだけで動く CLI。インスタンス情報、HTTP、標準入出力を担当。
-- `plugin/bundles/formatter-bridge/`：DBeaver の追加コマンドとフォーマッタ呼び出し。
-- `plugin/features/`、`plugin/repository/`：導入単位と p2 更新サイト。
-- `plugin/target-platform/`：ローカルのビルド依存。生成物は Git の対象外。
-- `scripts/`：インストール済み DBeaver のビルド依存準備、配布物ビルド、統合検証。
-- `examples/efm/`：OS ごとの設定例。
-- `tests/fixtures/`：検証用 SQL。
+CLI はインスタンスの特定、認証、HTTP 通信、標準入出力を担当します。
+DBeaver プラグインは、接続先の方言と設定を選び、DBeaver のフォーマッタを呼び出します。
+両者のデータ形式は [通信仕様](protocol.md) で定義します。
 
-将来の VS Code 拡張は `extensions/vscode/` に追加します。
-インスタンス探索・認証・通信は CLI に任せ、拡張へ重複実装しない方針です。
-初期実装にはこのディレクトリも Node.js 依存も追加していません。
+| ディレクトリ | 役割 |
+|---|---|
+| `cli/cmd/dbeaver-format/` | CLI のエントリーポイント |
+| `cli/internal/instance/` | ワークスペースからインスタンス情報を読む |
+| `cli/internal/client/` | DBeaver のローカル API を呼び出す |
+| `cli/internal/command/` | 引数と標準入出力を扱う |
+| `plugin/bundles/formatter-bridge/` | DBeaver に整形コマンドを追加するプラグイン |
+| `plugin/features/` | DBeaver に表示するインストール単位の定義 |
+| `plugin/repository/` | プラグイン導入用 ZIP の生成 |
+| `plugin/target-platform/` | ビルド時に参照する DBeaver と Eclipse のライブラリ |
+| `scripts/` | ビルド、配布、統合テストのコマンド |
+| `.github/workflows/` | CI の定義 |
+| `examples/efm/` | efm-langserver の設定例 |
+| `tests/fixtures/` | 検証用 SQL |
+| `licenses/` | CLI に含まれる第三者ソフトウェアのライセンス表示 |
 
-今後のリリース前作業：
+ビルドの実行手順は [README](../README.md#開発)、ライブラリの準備方法は [プラグインのビルド依存](../plugin/target-platform/README.md) を参照してください。
 
-1. 実際に使う DB・DBeaver の版・接続を確定し、接続別設定を GUI エディタと比較する。
-2. Windows/Linux で p2 導入、CLI、efm、空白・日本語を含む配置パスを検証する。
-3. p2 更新・削除と CLI 更新の確認を行う。
-4. 署名・公証とリリース手順を整える。初回 CI は全ジョブ成功を確認済み。
+## 生成物
 
-3 OS の CLI テスト、実 DBeaver を含む Windows CI、ライセンス付きアーカイブとチェックサムの生成は実装済みです。
-CI の実行状況と対象は [ci.md](ci.md) を参照してください。
+| 出力先 | 内容 |
+|---|---|
+| `build/` | OS と CPU ごとの CLI 実行ファイル |
+| `dist/` | ライセンス文書を含む CLI 配布 ZIP とチェックサム |
+| `plugin/repository/target/` | DBeaver に導入するプラグイン ZIP |
+| `plugin/target-platform/target/` | ビルド用ライブラリと一時設定 |
 
-DBeaver 本体のフルビルドは不要です。
-ビルド用のローカル p2 リポジトリと、利用者へ渡す更新サイトは別物です。
-`plugin/target-platform/target/` を配布しないでください。
+ビルド用ライブラリには DBeaver 本体の JAR を含むため、プラグインの配布には `plugin/repository/target/` の ZIP を使います。

@@ -1,20 +1,42 @@
-# efm-langserver 連携
+# efm-langserver の設定
 
-`config-unix.yaml` または `config-windows.yaml` を例として、CLI とワークスペースの絶対パスを自分の環境へ置き換えます。
-接続別設定を使う場合は `format-command` に `--connection "接続ID"` を追加します。
-Windows の例では、コマンド全体を囲む最後の引用符の内側へ追加してください。
-ユーザーの設定ファイルをこのリポジトリの例で上書きせず、既存の `languages.sql` へ統合してください。
+[macOS / Linux 用](config-unix.yaml) または [Windows 用](config-windows.yaml) の設定例を使います。
+CLI とワークスペースのパスを自分の環境へ置き換え、efm-langserver の設定ファイルにある `languages.sql` へ追加してください。
 
-設定場所の例：
+## 設定ファイル
 
-- Windows：`%APPDATA%\efm-langserver\config.yaml`
-- macOS / Linux：`~/.config/efm-langserver/config.yaml`（または `-c` で明示）
+| 環境 | 配置先 |
+|---|---|
+| Windows | `%APPDATA%\efm-langserver\config.yaml` |
+| macOS / Linux | `$XDG_CONFIG_HOME/efm-langserver/config.yaml`。未設定なら `~/.config/efm-langserver/config.yaml` |
 
-エディタ側は既存の LSP クライアントから `efm-langserver` を起動し、SQL の整形要求を efm に送ります。
-`format-stdin: true` により、未保存の文書も CLI の標準入力に渡されます。
-`format-command` に入力 SQL や `${INPUT}` を埋め込む必要はありません。
-設定例では実行ファイルをフルパスで指定し、PATH がエディタから見えない問題を避けます。
+別の場所に置く場合は、`efm-langserver -c /path/to/config.yaml` で指定します。
 
-macOS では実際の efm 0.0.57 に stdio LSP の要求を送り、正常な整形と CLI 失敗時の空の編集結果を確認しました。
-Windows の設定例は cmd.exe 用の二重引用符を使用していますが、実機確認は未実施です。
-エディタ固有の起動設定は利用する LSP クライアントに合わせてください。
+設定例の `format-stdin: true` により、編集中の文書が CLI の標準入力へ渡されます。
+未保存の SQL も整形できます。
+
+## 接続別設定
+
+接続先の方言と整形設定を使う場合は、`format-command` に `--connection "接続ID"` を追加します。
+接続 ID の調べ方は [導入手順](../../docs/installation.md#接続-id) を参照してください。
+
+Windows のコマンドは cmd.exe 用に全体を二重引用符で囲むため、オプションは最後の引用符の内側へ追加します。
+
+```yaml
+format-command: '""C:\Tools\DBeaver Bridge\dbeaver-format.exe" --workspace "C:\path\to\workspace6" --connection "connection-id""'
+```
+
+## エディタ側の設定
+
+LSP クライアントに次の設定を指定します。
+設定の書式は使用するエディタとクライアントに従ってください。
+
+| 項目 | 値 |
+|---|---|
+| 起動コマンド | `efm-langserver`。設定ファイルを指定する場合は `-c` を付ける |
+| 対象の言語 | SQL |
+| 初期化オプション | `documentFormatting: true` |
+
+エディタの文書整形操作から `textDocument/formatting` を送ると、efm-langserver が CLI を呼び出し、返された SQL を文書へ反映します。
+DBeaver を起動し、`--connection` を指定する場合は対象の接続を接続済みにしておきます。
+連携の確認範囲は [互換性](../../docs/compatibility.md) を参照してください。
