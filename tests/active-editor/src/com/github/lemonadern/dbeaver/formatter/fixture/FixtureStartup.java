@@ -241,7 +241,12 @@ public final class FixtureStartup implements IStartup {
         return result.get(15, TimeUnit.SECONDS);
     }
     private static void require(boolean condition, String message) { if (!condition) throw new AssertionError(message); }
-    private void pass(String message) { results.append("PASS: ").append(message).append('\n'); }
+    private void pass(String message) {
+        results.append("PASS: ").append(message).append('\n');
+        try {
+            Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".progress"), results.toString(), StandardCharsets.UTF_8);
+        } catch (Exception ignored) {}
+    }
     private record Input(String name) implements IEditorInput {
         @Override public boolean exists() { return false; }
         @Override public ImageDescriptor getImageDescriptor() { return null; }

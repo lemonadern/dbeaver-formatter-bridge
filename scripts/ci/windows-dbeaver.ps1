@@ -194,6 +194,23 @@ try {
 } catch {
     # Keep failure artifacts useful without exposing raw app output or requests.
     Report ('FAIL: ' + $stage + '; line=' + $_.InvocationInfo.ScriptLineNumber + '; type=' + $_.Exception.GetType().FullName)
+    if ($null -ne $gui -and $gui.Process.HasExited) {
+        Report ('DBeaver exit code: ' + $gui.Process.ExitCode)
+        $diagnostics = $gui.Stdout.GetAwaiter().GetResult() + "`n" + $gui.Stderr.GetAwaiter().GetResult()
+        $appLog = Join-Path $workspace '.metadata/.log'
+        if (Test-Path -LiteralPath $appLog) { $diagnostics += "`n" + (Get-Content -LiteralPath $appLog -Raw) }
+        $lines = @($diagnostics -split "`r?`n" | Where-Object { $_ -match '(Exception|Error):|^!MESSAGE|fatal error|EXCEPTION_ACCESS_VIOLATION|Problematic frame|SIGSEGV' } | Select-Object -Last 16)
+        foreach ($line in $lines) {
+            $safe = $line -replace '(?i)(password|authorization|bearer)[^\r\n]*', '[redacted]'
+            $safe = $safe -replace '[A-Za-z0-9_-]{32,}', '[redacted]'
+            $safe = $safe -replace '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ''
+            if ($safe.Length -gt 500) { $safe = $safe.Substring(0, 500) }
+            Report ('Exit diagnostic: ' + $safe)
+        }
+    }
+    if (Test-Path -LiteralPath (Join-Path $temp 'active-editor-result.txt.progress')) {
+        Get-Content -LiteralPath (Join-Path $temp 'active-editor-result.txt.progress') -Encoding utf8 | ForEach-Object { Report $_ }
+    }
     throw ('Windows integration failed during ' + $stage + '; see sanitized ci-report.txt')
 } finally {
     if ($null -ne $gui) {
