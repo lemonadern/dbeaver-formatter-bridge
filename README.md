@@ -20,7 +20,15 @@ dbeaver-format --workspace "/path/to/DBeaverData/workspace6" < input.sql
 dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < input.sql
 ```
 
-接続 ID を省略すると、標準 SQL 方言とグローバル設定を使います。
+DBeaver で選択中の SQL タブの接続を使う場合は、`--active-editor` を指定します。
+DBeaver で対象の SQL タブを選び、その接続を接続済みにしてから実行します。
+
+```sh
+dbeaver-format --workspace "/path/to/workspace6" --active-editor < input.sql
+```
+
+`--connection` と `--active-editor` は同時に指定できません。
+どちらも省略すると、標準 SQL 方言とグローバル設定を使います。
 インデントは DBeaver のテキストエディタ設定に従い、`--indent "  "` で上書きできます。
 
 - 入力は UTF-8 の SQL で、最大 1 MiB です。

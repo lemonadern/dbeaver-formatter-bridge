@@ -99,6 +99,17 @@ try {
     }
     Report 'PASS: p2 update-site ZIP installed into disposable DBeaver'
 
+    $stage = 'active editor test fixture build'
+    $fixture = Join-Path $temp 'active-editor-fixture.jar'
+    & go run ./scripts/ci/build-active-editor-fixture.go -dbeaver-home $dbeaverHome -java-home $env:JAVA_HOME -output $fixture
+    # Test-only bundle is appended only to this disposable installation, after the
+    # distribution ZIP has been built and checked. It is never shipped to users.
+    $bundlesInfo = Join-Path $dbeaverHome 'configuration/org.eclipse.equinox.simpleconfigurator/bundles.info'
+    [IO.File]::AppendAllText($bundlesInfo,
+        "`ncom.github.lemonadern.dbeaver.formatter.fixture,1.0.0," + ([Uri]::new($fixture)).AbsoluteUri + ",4,false`n",
+        [Text.UTF8Encoding]::new($false))
+    $fixtureResult = Join-Path $temp 'active-editor-result.txt'
+
     $stage = 'GUI startup and readiness'
     $workspace = Join-Path $temp 'workspace 空白'
     # Windows java.exe converts native arguments through the system ANSI code page.
@@ -108,7 +119,7 @@ try {
     # The workspace and user.home are isolated from the CI account as well.
     # Amend only the disposable vendor ini, preserving all existing JVM options.
     [IO.File]::AppendAllText((Join-Path $dbeaverHome 'dbeaver.ini'),
-        "`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n", [Text.UTF8Encoding]::new($false))
+        "`n-Dproduct.config.disable=true`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n-Dbridge.fixture.result=" + $fixtureResult + "`n-Dbridge.fixture.cli=" + ([Uri]::new($cli)).AbsoluteUri + "`n", [Text.UTF8Encoding]::new($false))
     $gui = Start-TestProcess -NativeDBeaver -Arguments @('-nosplash', '-consoleLog',
         '-data', ([Uri]::new($workspace)).AbsoluteUri)
     $ready = $false
@@ -145,6 +156,23 @@ try {
     if (-not $ready) { throw 'DBeaver bridge readiness timed out' }
     Report 'PASS: real Windows DBeaver GUI and bridge readiness'
 
+    $stage = 'active editor integration'
+    $fixtureTimer = [Diagnostics.Stopwatch]::StartNew()
+    while (-not (Test-Path -LiteralPath $fixtureResult)) {
+        if ($gui.Process.HasExited) { throw 'DBeaver exited during active editor tests' }
+        if ($fixtureTimer.Elapsed.TotalSeconds -gt 120) { throw 'Active editor fixture timed out' }
+        Start-Sleep -Seconds 1
+    }
+    $fixtureLines = @(Get-Content -LiteralPath $fixtureResult -Encoding utf8)
+    foreach ($line in $fixtureLines) { Report $line }
+    if ($fixtureLines -contains 'PASS: active-editor integration completed' -and -not ($fixtureLines | Where-Object { $_ -like 'FAIL:*' })) {
+        Report 'PASS: real Workbench active SQL tabs, per-connection preferences, GUI formatter comparison, errors, UI timeout and native CLI'
+    } else {
+        throw 'Active editor integration fixture failed'
+    }
+
+    # The fixture deliberately blocks the UI to exercise its timeout. Wait for
+    # completion before issuing other integration requests.
     $stage = 'real bridge integration'
     & go run ./scripts/test-bridge.go --cli $cli --workspace $workspace
     Report 'PASS: bridge Unicode, LF/CRLF, empty input, failures and concurrency'
@@ -166,6 +194,23 @@ try {
 } catch {
     # Keep failure artifacts useful without exposing raw app output or requests.
     Report ('FAIL: ' + $stage + '; line=' + $_.InvocationInfo.ScriptLineNumber + '; type=' + $_.Exception.GetType().FullName)
+    if ($null -ne $gui -and $gui.Process.HasExited) {
+        Report ('DBeaver exit code: ' + $gui.Process.ExitCode)
+        $diagnostics = $gui.Stdout.GetAwaiter().GetResult() + "`n" + $gui.Stderr.GetAwaiter().GetResult()
+        $appLog = Join-Path $workspace '.metadata/.log'
+        if (Test-Path -LiteralPath $appLog) { $diagnostics += "`n" + (Get-Content -LiteralPath $appLog -Raw) }
+        $lines = @($diagnostics -split "`r?`n" | Where-Object { $_ -match '(Exception|Error):|^!MESSAGE|fatal error|EXCEPTION_ACCESS_VIOLATION|Problematic frame|SIGSEGV' } | Select-Object -Last 16)
+        foreach ($line in $lines) {
+            $safe = $line -replace '(?i)(password|authorization|bearer)[^\r\n]*', '[redacted]'
+            $safe = $safe -replace '[A-Za-z0-9_-]{32,}', '[redacted]'
+            $safe = $safe -replace '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ''
+            if ($safe.Length -gt 500) { $safe = $safe.Substring(0, 500) }
+            Report ('Exit diagnostic: ' + $safe)
+        }
+    }
+    if (Test-Path -LiteralPath (Join-Path $temp 'active-editor-result.txt.progress')) {
+        Get-Content -LiteralPath (Join-Path $temp 'active-editor-result.txt.progress') -Encoding utf8 | ForEach-Object { Report $_ }
+    }
     throw ('Windows integration failed during ' + $stage + '; see sanitized ci-report.txt')
 } finally {
     if ($null -ne $gui) {

@@ -103,3 +103,64 @@ func TestKnownErrorEnvelope(t *testing.T) {
 		}
 	}
 }
+
+func TestActiveEditorProtocolCompatibility(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		version   int
+		errorCode string
+		wantError string
+	}{
+		{"current-plugin", 2, "", ""},
+		{"old-plugin", 1, "unsupported_version", "update the Formatter Bridge plugin"},
+		{"wrong-success-version", 1, "", "unsupported protocol version"},
+		{"no-editor", 2, "active_editor_unavailable", "select a SQL editor tab"},
+		{"unassigned", 2, "active_editor_no_connection", "no assigned connection"},
+		{"ambiguous-window", 2, "active_window_ambiguous", "window is ambiguous"},
+		{"ui-unavailable", 2, "ui_unavailable", "workbench is unavailable"},
+		{"ui-timeout", 2, "ui_timeout", "UI did not respond"},
+		{"disconnected", 2, "connection_disconnected", "connect it in DBeaver first"},
+		{"wrong-error-version", 1, "active_editor_unavailable", "check bridge installation and compatibility"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					Args []string `json:"args"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Args) != 3 {
+					t.Error("invalid command envelope")
+					w.WriteHeader(400)
+					return
+				}
+				var req map[string]any
+				if err := json.Unmarshal([]byte(body.Args[2]), &req); err != nil {
+					t.Error(err)
+					w.WriteHeader(400)
+					return
+				}
+				if req["version"] != float64(2) || req["activeEditor"] != true || req["connection"] != nil {
+					t.Errorf("wrong active-editor request: %v", req)
+				}
+				envelope := map[string]any{"version": tt.version}
+				exitCode := 0
+				if tt.errorCode != "" {
+					envelope["error"] = tt.errorCode
+					exitCode = 1
+				} else {
+					envelope["sql"] = "SELECT 1"
+				}
+				p, _ := json.Marshal(envelope)
+				json.NewEncoder(w).Encode(map[string]any{"exitCode": exitCode, "output": []string{string(p)}})
+			}))
+			defer s.Close()
+			got, err := Format(context.Background(), target(s), Request{Version: 2, ActiveEditor: true, SQL: "select 1"}, time.Second)
+			if tt.wantError == "" {
+				if err != nil || got != "SELECT 1" {
+					t.Fatalf("%q %v", got, err)
+				}
+			} else if err == nil || got != "" || !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("%q %v; want %q", got, err, tt.wantError)
+			}
+		})
+	}
+}

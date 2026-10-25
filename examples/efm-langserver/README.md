@@ -26,6 +26,21 @@ Windows のコマンドは cmd.exe 用に全体を二重引用符で囲むため
 format-command: '""C:\Tools\DBeaver Bridge\dbeaver-format.exe" --workspace "C:\path\to\workspace6" --connection "connection-id""'
 ```
 
+接続 ID を固定せず、DBeaver で選択中の SQL タブの接続を使う場合は、`--connection` の代わりに `--active-editor` を追加します。
+DBeaver で接続済みの SQL タブを選び、外部エディタに戻って整形してください。
+
+```yaml
+# macOS / Linux
+format-command: '"/path/to/dbeaver-format" --workspace "/path/to/workspace6" --active-editor'
+```
+
+```yaml
+# Windows
+format-command: '""C:\Tools\DBeaver Bridge\dbeaver-format.exe" --workspace "C:\path\to\workspace6" --active-editor"'
+```
+
+SQL タブや接続を取得できない場合は整形エラーになり、元の文書を維持します。
+
 ## エディタ側の設定
 
 LSP クライアントに次の設定を指定します。
@@ -38,5 +53,5 @@ LSP クライアントに次の設定を指定します。
 | 初期化オプション | `documentFormatting: true` |
 
 エディタの文書整形操作から `textDocument/formatting` を送ると、efm-langserver が CLI を呼び出し、返された SQL を文書へ反映します。
-DBeaver を起動し、`--connection` を指定する場合は対象の接続を接続済みにしておきます。
+DBeaver を起動し、`--connection` または `--active-editor` を指定する場合は対象の接続を接続済みにしておきます。
 連携の確認範囲は [互換性](../../docs/compatibility.md) を参照してください。

@@ -61,7 +61,25 @@ dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < 
 ```
 
 同じ ID が複数プロジェクトにある場合や、指定した接続が切れている場合はエラーになります。
-接続 ID を省略した場合の設定は [README](../README.md#利用) を参照してください。
+接続の指定方法は [README](../README.md#利用) を参照してください。
+
+## 選択中の SQL タブの接続を使う
+
+DBeaver で対象の SQL タブを選択し、タブに割り当てた接続を接続済みにします。
+`--active-editor` を指定すると、その接続の方言と整形設定を使います。
+
+```sh
+dbeaver-format --workspace "/path/to/workspace6" --active-editor < input.sql
+```
+
+VS Code などのエディタに戻ってからも利用できます。
+DBeaver で別の SQL タブを選ぶと、次の要求からそのタブの接続を使います。
+外部エディタのファイル名や、DBeaver の接続ツリーでの選択は参照しません。
+SQL タブがない、接続が割り当てられていない、接続が切れている場合はエラーになります。
+
+DBeaver の対象ウィンドウを取得できない場合は、開いているウィンドウが一つならそのウィンドウを使います。
+複数ある場合はエラーになるため、DBeaver で対象のウィンドウを選び直してください。
+`--connection` との併用はできません。
 
 ## エラーへの対処
 
@@ -71,6 +89,10 @@ dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < 
 | DBeaver に接続できない | DBeaver が終了していないか |
 | bridge command / compatibility | プラグインの導入、DBeaver の再起動、[対応版](compatibility.md) |
 | connection ID / disconnected | 接続 ID と DBeaver 上の接続状態 |
+| active SQL editor / connection | DBeaver で選択している SQL タブと、そのタブの接続 |
+| ambiguous / window | DBeaver で対象のウィンドウを選び直す |
+| UI / timeout | DBeaver のダイアログや処理が完了しているか。UI の応答待ちは最大 2 秒 |
+| upgrade / protocol version | 新しいプラグインを導入して DBeaver を再起動する |
 | timeout | 入力サイズ、外部フォーマッタの設定、`--timeout` の値 |
 
 CLI のタイムアウトは DBeaver 内の整形処理を中断しません。

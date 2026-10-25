@@ -20,10 +20,11 @@ func Run(args []string, in io.Reader, out, diagnostics io.Writer) int {
 	fs.SetOutput(diagnostics)
 	workspace := fs.String("workspace", "", "DBeaver workspace path (required)")
 	connection := fs.String("connection", "", "DBeaver connection ID; default uses global SQL settings")
+	activeEditor := fs.Bool("active-editor", false, "use the connection of the selected SQL editor in DBeaver")
 	timeout := fs.Duration("timeout", 10*time.Second, "request timeout, e.g. 10s")
 	indent := fs.String("indent", "", "indent string (spaces or tabs); default uses DBeaver settings")
 	fs.Usage = func() {
-		fmt.Fprintln(diagnostics, "Usage: dbeaver-format --workspace PATH [--connection ID] [--timeout 10s] [--indent STRING] < input.sql")
+		fmt.Fprintln(diagnostics, "Usage: dbeaver-format --workspace PATH [--connection ID | --active-editor] [--timeout 10s] [--indent STRING] < input.sql")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {
@@ -38,11 +39,19 @@ func Run(args []string, in io.Reader, out, diagnostics io.Writer) int {
 		return 2
 	}
 	var indentValue *string
+	connectionSet := false
 	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "connection" {
+			connectionSet = true
+		}
 		if f.Name == "indent" {
 			indentValue = indent
 		}
 	})
+	if *activeEditor && connectionSet {
+		fmt.Fprintln(diagnostics, "dbeaver-format: --active-editor and --connection cannot be used together")
+		return 2
+	}
 	if indentValue != nil && (len(*indentValue) == 0 || len(*indentValue) > 32 || strings.Trim(*indentValue, " \t") != "") {
 		return fail(fmt.Errorf("--indent accepts at most 32 spaces or tabs"))
 	}
@@ -54,7 +63,11 @@ func Run(args []string, in io.Reader, out, diagnostics io.Writer) int {
 	if err != nil {
 		return fail(fmt.Errorf("cannot read SQL from stdin"))
 	}
-	formatted, err := client.Format(context.Background(), target, client.Request{Version: 1, SQL: string(sql), Connection: *connection, Indent: indentValue}, *timeout)
+	version := 1
+	if *activeEditor {
+		version = 2
+	}
+	formatted, err := client.Format(context.Background(), target, client.Request{Version: version, ActiveEditor: *activeEditor, SQL: string(sql), Connection: *connection, Indent: indentValue}, *timeout)
 	if err != nil {
 		return fail(err)
 	}

@@ -24,10 +24,11 @@ const MaxSQLBytes = 1 << 20
 const maxResponseBytes = 64 << 20
 
 type Request struct {
-	Version    int     `json:"version"`
-	SQL        string  `json:"sql"`
-	Connection string  `json:"connection,omitempty"`
-	Indent     *string `json:"indent,omitempty"`
+	ActiveEditor bool    `json:"activeEditor,omitempty"`
+	Version      int     `json:"version"`
+	SQL          string  `json:"sql"`
+	Connection   string  `json:"connection,omitempty"`
+	Indent       *string `json:"indent,omitempty"`
 }
 
 func Format(ctx context.Context, target instance.Instance, input Request, timeout time.Duration) (string, error) {
@@ -83,15 +84,23 @@ func Format(ctx context.Context, target instance.Instance, input Request, timeou
 				Version int    `json:"version"`
 				Error   string `json:"error"`
 			}
-			if json.Unmarshal([]byte(result.Output[0]), &failure) == nil && failure.Version == 1 {
+			if json.Unmarshal([]byte(result.Output[0]), &failure) == nil && (failure.Version == input.Version || failure.Version == 1 && failure.Error == "unsupported_version") {
+				if input.ActiveEditor && failure.Error == "unsupported_version" {
+					return "", fmt.Errorf("DBeaver bridge does not support --active-editor; update the Formatter Bridge plugin and restart DBeaver")
+				}
 				messages := map[string]string{
-					"invalid_request":         "DBeaver bridge rejected the formatting request",
-					"unsupported_version":     "DBeaver bridge protocol version is unsupported",
-					"connection_not_found":    "DBeaver connection ID was not found",
-					"connection_ambiguous":    "DBeaver connection ID is ambiguous across projects",
-					"connection_disconnected": "DBeaver connection is disconnected; connect it in DBeaver first",
-					"formatter_unavailable":   "DBeaver configured formatter is unavailable",
-					"formatting_failed":       "DBeaver formatter failed",
+					"active_editor_unavailable":   "DBeaver has no selected SQL editor; select a SQL editor tab in DBeaver",
+					"active_editor_no_connection": "DBeaver selected SQL editor has no assigned connection",
+					"active_window_ambiguous":     "DBeaver window is ambiguous; activate the intended DBeaver window and retry",
+					"ui_unavailable":              "DBeaver workbench is unavailable",
+					"ui_timeout":                  "DBeaver UI did not respond in time; close any modal dialog and retry",
+					"invalid_request":             "DBeaver bridge rejected the formatting request",
+					"unsupported_version":         "DBeaver bridge protocol version is unsupported",
+					"connection_not_found":        "DBeaver connection ID was not found",
+					"connection_ambiguous":        "DBeaver connection ID is ambiguous across projects",
+					"connection_disconnected":     "DBeaver connection is disconnected; connect it in DBeaver first",
+					"formatter_unavailable":       "DBeaver configured formatter is unavailable",
+					"formatting_failed":           "DBeaver formatter failed",
 				}
 				if message, ok := messages[failure.Error]; ok {
 					return "", fmt.Errorf("%s", message)
@@ -107,7 +116,7 @@ func Format(ctx context.Context, target instance.Instance, input Request, timeou
 		Version int     `json:"version"`
 		SQL     *string `json:"sql"`
 	}
-	if json.Unmarshal([]byte(result.Output[0]), &formatted) != nil || formatted.Version != 1 || formatted.SQL == nil {
+	if json.Unmarshal([]byte(result.Output[0]), &formatted) != nil || formatted.Version != input.Version || formatted.SQL == nil {
 		return "", fmt.Errorf("invalid bridge response or unsupported protocol version")
 	}
 	return *formatted.SQL, nil

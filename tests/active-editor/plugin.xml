@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plugin>
+  <extension point="org.eclipse.ui.startup">
+    <startup class="com.github.lemonadern.dbeaver.formatter.fixture.FixtureStartup"/>
+  </extension>
+  <extension point="org.eclipse.ui.editors">
+    <editor id="com.github.lemonadern.dbeaver.formatter.fixture.sql" name="Bridge test SQL" class="com.github.lemonadern.dbeaver.formatter.fixture.FixtureEditor"/>
+    <editor id="com.github.lemonadern.dbeaver.formatter.fixture.plain" name="Bridge test text" class="com.github.lemonadern.dbeaver.formatter.fixture.PlainEditor"/>
+  </extension>
+</plugin>

@@ -45,7 +45,7 @@ func check(cli, workspace string) error {
 		sql := "select '日本語😀' as label,'C:\\temp\\new.sql' as path,'\"quoted\"' as value" + newline + "from example where id=1;"
 		out, stderr, err := run(sql)
 		if err != nil || stderr != "" {
-			return fmt.Errorf("string formatting failed")
+			return fmt.Errorf("string formatting failed (newline=%q, process=%v, diagnostic=%q)", newline, err, strings.TrimSpace(stderr))
 		}
 		for _, literal := range []string{"'日本語😀'", "'C:\\temp\\new.sql'", "'\"quoted\"'"} {
 			if !strings.Contains(out, literal) {
