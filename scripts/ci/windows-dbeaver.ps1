@@ -26,13 +26,22 @@ function Report([string] $message) {
     Write-Host $message
 }
 
-function Start-Java([string[]] $Arguments) {
+function Start-Java([string[]] $Arguments, [switch] $ProductVMOptions) {
     $info = [Diagnostics.ProcessStartInfo]::new()
     $info.FileName = Join-Path $env:JAVA_HOME 'bin/java.exe'
     $info.UseShellExecute = $false
     $info.RedirectStandardOutput = $true
     $info.RedirectStandardError = $true
     $info.Environment['DBEAVER_DATA'] = Join-Path $temp 'data'
+    if ($ProductVMOptions) {
+        # Match the vendor launcher's JVM options instead of relying on java defaults.
+        $ini = @(Get-Content -LiteralPath (Join-Path $dbeaverHome 'dbeaver.ini'))
+        $vmIndex = [Array]::IndexOf($ini, '-vmargs')
+        if ($vmIndex -lt 0) { throw 'Missing vendor JVM options' }
+        foreach ($option in $ini[($vmIndex + 1)..($ini.Count - 1)]) {
+            if (-not [string]::IsNullOrWhiteSpace($option)) { $info.ArgumentList.Add($option) }
+        }
+    }
     $info.ArgumentList.Add('-Duser.home=' + (Join-Path $temp 'user-home'))
     foreach ($arg in $Arguments) { $info.ArgumentList.Add($arg) }
     $process = [Diagnostics.Process]::new()
@@ -100,13 +109,30 @@ try {
     # The native Go CLI still receives the real Unicode filesystem path.
     # The extracted application and its p2-managed configuration are disposable.
     # The workspace and user.home are isolated from the CI account as well.
-    $gui = Start-Java -Arguments @('-jar', $launcher[0].FullName, '-nosplash',
+    $gui = Start-Java -ProductVMOptions -Arguments @('-jar', $launcher[0].FullName, '-nosplash', '-consoleLog',
         '-configuration', (Join-Path $dbeaverHome 'configuration'),
         '-data', ([Uri]::new($workspace)).AbsoluteUri)
     $ready = $false
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ($timer.Elapsed.TotalSeconds -lt 120) {
-        if ($gui.Process.HasExited) { throw 'DBeaver GUI exited before readiness' }
+        if ($gui.Process.HasExited) {
+            Report ('DBeaver startup exit code: ' + $gui.Process.ExitCode)
+            $startup = $gui.Stdout.GetAwaiter().GetResult() + "`n" + $gui.Stderr.GetAwaiter().GetResult()
+            $logs = @(Get-ChildItem (Join-Path $dbeaverHome 'configuration') -Recurse -Filter '*.log' -ErrorAction SilentlyContinue)
+            $workspaceLog = Join-Path $workspace '.metadata/.log'
+            foreach ($log in $logs) { $startup += "`n" + (Get-Content -LiteralPath $log.FullName -Raw) }
+            if (Test-Path -LiteralPath $workspaceLog) { $startup += "`n" + (Get-Content -LiteralPath $workspaceLog -Raw) }
+            # Emit only bounded exception summaries, never raw app logs or registry files.
+            $summaries = @($startup -split "`r?`n" | Where-Object { $_ -match '(Exception|Error):|^!MESSAGE' } | Select-Object -Last 12)
+            foreach ($line in $summaries) {
+                $safe = $line -replace '(?i)(password|authorization|bearer)[^\r\n]*', '[redacted]'
+                $safe = $safe -replace '[A-Za-z0-9_-]{32,}', '[redacted]'
+                $safe = $safe -replace '[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', ''
+                if ($safe.Length -gt 500) { $safe = $safe.Substring(0, 500) }
+                Report ('Startup diagnostic: ' + $safe)
+            }
+            throw 'DBeaver GUI exited before readiness'
+        }
         # Never parse, print or upload the RPC registry. The CLI handles it.
         $sql = 'select 1'
         $oldNative = $PSNativeCommandUseErrorActionPreference
