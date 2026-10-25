@@ -1,83 +1,68 @@
 # DBeaver Formatter Bridge
 
-起動中の DBeaver に SQL の整形を依頼する CLI と DBeaver プラグインです。
-DBeaver が選択しているフォーマッタを呼び出し、その接続の SQL 方言と整形設定を使用します。
-エディタとの接続は efm-langserver に任せ、専用の VS Code 拡張は将来追加する構成です。
-
-**開発版です。**
-macOS arm64 / DBeaver CE 26.2.2 で GUI・CLI・efm の連携を検証しています。
-Windows x64 / CE 26.2.2 は CI で p2 導入・GUI・CLI・PowerShell・Git Bash の連携を確認済みです。
-Linux の CLI テストは CI で成功していますが、Linux の実 DBeaver 連携は未検証です。
-対応状況の詳細は [互換性](docs/compatibility.md) を参照してください。
+DBeaver の SQL フォーマッタをコマンドラインから利用するためのツールです。
+CLI が標準入力の SQL を起動中の DBeaver プラグインへ渡し、整形結果を標準出力に返します。
+DBeaver の整形設定と、接続先の SQL 方言を使えます。
 
 ## 利用
 
 1. [導入手順](docs/installation.md) に従い、DBeaver にプラグインを導入して再起動します。
 2. OS に合う CLI を `dbeaver-format`（Windows は `.exe`）という名前で PATH に配置します。
-3. 起動した DBeaver のワークスペースを明示し、SQL を標準入力へ渡します。
+3. DBeaver を起動した状態で、ワークスペースを指定して SQL を標準入力へ渡します。
 
 ```sh
 dbeaver-format --workspace "/path/to/DBeaverData/workspace6" < input.sql
 ```
 
-接続ごとの設定を使う場合は、接続済みの DBeaver 接続 ID を指定します。
-接続名ではありません。
+接続先の SQL 方言と整形設定を使う場合は、DBeaver で接続し、その接続 ID を指定します。
 
 ```sh
 dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < input.sql
 ```
 
-接続を省略すると標準 SQL 方言とグローバル設定を使います。
-アクティブなエディタの接続を推測しません。
-インデントは DBeaver のテキストエディタ設定を使用し、必要なら `--indent "  "` で上書きできます。
+接続 ID を省略すると、標準 SQL 方言とグローバル設定を使います。
+インデントは DBeaver のテキストエディタ設定に従い、`--indent "  "` で上書きできます。
 
-- 入力は UTF-8 の SQL、最大 1 MiB。
-- 標準出力は整形結果だけです。末尾改行を追加しません。
-- 入力ファイルは上書きしません。
-- 失敗時は標準エラー出力と非ゼロ終了コードを返し、整形結果を出力しません。
-- 文書全体の整形に対応します。範囲整形には対応しません。
+- 入力は UTF-8 の SQL で、最大 1 MiB です。
+- 文書全体を整形します。
+- 標準出力は整形結果だけで、末尾改行を追加しません。
+- エラーは標準エラー出力に書き出し、非ゼロの終了コードを返します。
 - タイムアウトは `--timeout 10s` などで指定します。既定は 10 秒です。
+
+対応する環境は [互換性](docs/compatibility.md) を参照してください。
 
 ## エディタとの接続
 
-[efm 設定例](examples/efm/README.md) を参照してください。
-未保存のバッファを標準入力へ渡すため、SQL ファイルを先に保存する必要はありません。
+[efm-langserver の設定例](examples/efm/README.md) を参照してください。
+未保存のバッファを標準入力へ渡せるため、SQL ファイルを先に保存する必要はありません。
 
 ## 開発
 
-既存の Go 1.27.2、Maven 3.10.0、JDK 25 を使用します。
-プラグインのコンパイル対象は Java 21、Tycho は 5.0.4 です。
-`mise.toml` は採用版の宣言であり、ビルドスクリプトがツールをインストールすることはありません。
-Maven の初回ビルドでは通常のビルド依存を取得します。
+ビルドには Go、JDK、Maven と DBeaver が必要です。
+ツールのバージョンは [mise.toml](mise.toml) を参照してください。
+`JAVA_HOME` を JDK のインストール先に設定し、リポジトリ直下で実行します。
+`-dbeaver-home` には DBeaver のインストール先を指定します（macOS では `/Applications/DBeaver.app` など）。
 
 ```sh
-# リポジトリ直下で、既存 DBeaver からローカルのビルド依存を用意する
-go run ./scripts/prepare-target.go -dbeaver-home /Applications/DBeaver.app -java "$JAVA_HOME/bin/java"
-# ローカル p2 ターゲットの URI を安全に渡してビルドする
+# ビルドで参照する DBeaver のライブラリを準備する
+go run ./scripts/prepare-target.go -dbeaver-home "/path/to/dbeaver" -java "$JAVA_HOME/bin/java"
+# プラグインをビルドする
 go run ./scripts/build-plugin.go
-# Windows/macOS/Linux × amd64/arm64 を build/ へ出力する
+# Windows、macOS、Linux の amd64 と arm64 向けに CLI をビルドする
 go run ./scripts/build-cli.go
-# ライセンスとチェックサム付き ZIP を dist/ へ出力する
+# CLI の配布 ZIP を作る
 go run ./scripts/package-cli.go
-# CLI のテスト
+# CLI のテストを実行する
 cd cli
 go test -race ./...
 go vet ./...
 ```
 
-生成される更新サイトは `plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip` です。
-ビルド用に取得した DBeaver の JAR は更新サイトに含めません。
-[検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[構成と今後の作業](docs/development.md) も参照してください。
+DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip` に生成されます。
+CLI の OS 別配布 ZIP とチェックサムは `dist/` に生成されます。
 
-## CI
-
-実 DBeaver を使う Windows CI と、3 OS の CLI テストを定義しています。
-[2026-10-25 の CI](https://github.com/lemonadern/dbeaver-formatter-bridge/actions/runs/40184924311) で全 4 ジョブが成功しています。
-[CI と配布物](docs/ci.md) を参照してください。
+[検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[リポジトリ構成](docs/development.md) を参照してください。
 
 ## ライセンス
 
-Copyright 2026 lemonadern。
-自作部分は Apache-2.0。
-CLI の配布 ZIP には [Go 側のライセンス表示](licenses/README.md) も含めます。
-DBeaver は別製品で、本リポジトリには DBeaver 本体・ドライバ・認証情報を含めません。
+[Apache-2.0](LICENSE)
