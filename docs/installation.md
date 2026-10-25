@@ -2,7 +2,7 @@
 
 DBeaver、DBeaver Formatter Bridge のプラグイン、CLI を用意します。
 対応する環境は [互換性](compatibility.md) を参照してください。
-エディタから使う場合は、[efm-langserver の設定例](../examples/efm/README.md) も参照してください。
+エディタから使う場合は、[efm-langserver の設定例](../examples/efm-langserver/README.md) も参照してください。
 
 ## 配布物の取得
 

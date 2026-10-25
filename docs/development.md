@@ -16,7 +16,7 @@ DBeaver プラグインは、接続先の方言と設定を選び、DBeaver の�
 | `plugin/target-platform/` | ビルド時に参照する DBeaver と Eclipse のライブラリ |
 | `scripts/` | ビルド、配布、統合テストのコマンド |
 | `.github/workflows/` | CI の定義 |
-| `examples/efm/` | efm-langserver の設定例 |
+| `examples/efm-langserver/` | efm-langserver の設定例 |
 | `tests/fixtures/` | 検証用 SQL |
 | `licenses/` | CLI に含まれる第三者ソフトウェアのライセンス表示 |
 

@@ -33,7 +33,7 @@ dbeaver-format --workspace "/path/to/workspace6" --connection "connection-id" < 
 
 ## エディタとの接続
 
-[efm-langserver の設定例](examples/efm/README.md) を参照してください。
+[efm-langserver の設定例](examples/efm-langserver/README.md) を参照してください。
 未保存のバッファを標準入力へ渡せるため、SQL ファイルを先に保存する必要はありません。
 
 ## 開発
