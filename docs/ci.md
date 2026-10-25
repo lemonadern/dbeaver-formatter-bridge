@@ -11,6 +11,7 @@ Linux のジョブでは配布対象の CLI をまとめてビルドし、配布
 Windows のジョブでは、公式 DBeaver を一時ディレクトリへ展開し、プラグインのビルドと導入後に GUI を起動します。
 その DBeaver に CLI から整形を依頼し、Unicode、LF/CRLF、空入力、失敗時の出力、並行要求を検証します。
 PowerShell と Git Bash からの UTF-8 入力、空白と日本語を含む CLI とワークスペースのパスも対象です。
+テスト用 SQL タブによる `--active-editor` の検証範囲は [テストの実行](testing.md#選択中の-sql-タブの統合テスト) を参照してください。
 取得する DBeaver とチェックサム、起動手順は [Windows テストのスクリプト](../scripts/ci/windows-dbeaver.ps1) を参照してください。
 
 ## 配布物を取得する

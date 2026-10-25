@@ -35,6 +35,27 @@ go run ./scripts/test-bridge.go --cli /absolute/path/dbeaver-format --workspace 
 
 手動で入力する SQL の例には [strings.sql](../tests/fixtures/strings.sql) を使えます。
 
+## 選択中の SQL タブの統合テスト
+
+Windows CI では、使い捨ての DBeaver にテスト用バンドルを追加し、実際の Workbench に SQL タブを開きます。
+テスト用バンドルは配布 ZIP に含めません。
+既存の JDK と DBeaver のライブラリでビルドでき、DB ドライバの追加は不要です。
+
+```sh
+go run ./scripts/ci/build-active-editor-fixture.go \
+  -dbeaver-home "/path/to/dbeaver" -java-home "$JAVA_HOME"
+```
+
+テストでは `SQLEditor` のテスト用サブクラスと接続のテストダブルを使います。
+接続設定の異なるタブの切り替え、対象がない場合のエラー、要求の検証、UI 待機のタイムアウトと復帰、CLI 経由の整形を確認します。
+整形結果は DBeaver の `SQLFormattingStrategy` の結果と比較します。
+通常の SQL エディタの初期化や、JDBC で実 DB に接続するテストではありません。
+起動と結果の判定は [Windows テストスクリプト](../scripts/ci/windows-dbeaver.ps1) を参照してください。
+
+実際の接続で確認する場合は、接続別の整形設定が異なる二つの SQL タブを用意します。
+同じ SQL に対して GUI の文書全体の整形、`--connection ID`、`--active-editor` の結果を比較します。
+タブを切り替えてから外部エディタに戻り、次の要求で設定が切り替わることも確認してください。
+
 ## efm-langserver の統合テスト
 
 この検証スクリプトは macOS と Linux のシェル向けです。
