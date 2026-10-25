@@ -4,3 +4,7 @@
 *.log
 
 /dist/
+
+/extensions/vscode/node_modules/
+/extensions/vscode/out/
+/extensions/vscode/.vscode-test/

@@ -14,6 +14,79 @@ permissions:
   contents: read
 
 jobs:
+  vscode-package:
+    name: VSIX / Package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+      - name: Install extension development dependencies
+        working-directory: extensions/vscode
+        run: npm ci --ignore-scripts
+      - name: Build VSIX
+        working-directory: extensions/vscode
+        run: npm run package
+      - name: Verify packaged files and licenses
+        run: go run ./scripts/ci/verify-vsix.go -write-checksum
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: vscode-vsix
+          path: |
+            dist/*.vsix
+            dist/VSIX-SHA256SUMS
+          if-no-files-found: error
+          retention-days: 7
+
+  vscode:
+    name: VSIX / ${{ matrix.os }}
+    needs: vscode-package
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: vscode-vsix
+          path: dist
+      - name: Verify VSIX
+        run: go run ./scripts/ci/verify-vsix.go
+      - name: Install extension development dependencies
+        working-directory: extensions/vscode
+        run: npm ci --ignore-scripts
+      - name: Test extension
+        working-directory: extensions/vscode
+        run: npm test
+      - name: Install and test VSIX in real VS Code (Linux)
+        if: runner.os == 'Linux'
+        working-directory: extensions/vscode
+        run: xvfb-run -a npm run test:vsix
+      - name: Install and test VSIX in real VS Code (Windows and macOS)
+        if: runner.os != 'Linux'
+        working-directory: extensions/vscode
+        run: npm run test:vsix
+
   cli:
     name: CLI / ${{ matrix.os }}
     strategy:
@@ -60,6 +133,7 @@ jobs:
           retention-days: 7
 
   windows-dbeaver:
+    needs: vscode-package
     name: Real DBeaver CE 26.2.2 / Windows x64
     runs-on: windows-2025
     timeout-minutes: 30
@@ -73,6 +147,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: extensions/vscode/package-lock.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: vscode-vsix
+          path: dist
+      - name: Verify VSIX
+        run: go run ./scripts/ci/verify-vsix.go
+      - name: Install extension test dependencies
+        working-directory: extensions/vscode
+        run: npm ci --ignore-scripts
+      - name: Compile extension test driver
+        working-directory: extensions/vscode
+        run: npm run compile
       - name: Record runner Maven version
         shell: pwsh
         run: mvn --version
@@ -83,7 +174,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: plugin-update-site
-          path: plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip
+          path: plugin/repository/target/formatter-bridge-update-site-0.1.0.zip
           if-no-files-found: error
           retention-days: 7
       - name: Upload sanitized failure report

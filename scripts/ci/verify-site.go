@@ -9,6 +9,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
@@ -17,16 +18,17 @@ import (
 )
 
 func main() {
-	site := flag.String("site", "plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip", "p2 site ZIP")
+	site := flag.String("site", "plugin/repository/target/formatter-bridge-update-site-0.1.0.zip", "p2 site ZIP")
+	version := flag.String("version", "0.1.0", "expected release bundle and feature version")
 	flag.Parse()
-	if err := verify(*site); err != nil {
+	if err := verify(*site, *version); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 	fmt.Println("PASS: p2 site includes only bridge feature/bundle, both with LICENSE and COPYRIGHT")
 }
 
-func verify(path string) error {
+func verify(path, version string) error {
 	outer, err := zip.OpenReader(path)
 	if err != nil {
 		return err
@@ -42,7 +44,7 @@ func verify(path string) error {
 			if dir == "features/" {
 				expected += ".feature"
 			}
-			if !strings.HasPrefix(f.Name, expected+"_") || !strings.HasSuffix(f.Name, ".jar") {
+			if f.Name != expected+"_"+version+".jar" {
 				return fmt.Errorf("unexpected site payload: %s", f.Name)
 			}
 			counts[dir]++
@@ -60,10 +62,37 @@ func verify(path string) error {
 				return err
 			}
 			found := map[string]bool{"LICENSE": false, "COPYRIGHT": false}
+			versionFound := false
 			for _, entry := range jar.File {
+				if (dir == "plugins/" && entry.Name == "META-INF/MANIFEST.MF") || (dir == "features/" && entry.Name == "feature.xml") {
+					r, err := entry.Open()
+					if err != nil {
+						return err
+					}
+					content, err := io.ReadAll(r)
+					r.Close()
+					if err != nil {
+						return err
+					}
+					if dir == "plugins/" {
+						text := strings.ReplaceAll(string(content), "\r\n", "\n")
+						versionFound = strings.Contains("\n"+text, "\nBundle-Version: "+version+"\n")
+					} else {
+						var feature struct {
+							Version string `xml:"version,attr"`
+						}
+						if err := xml.Unmarshal(content, &feature); err != nil {
+							return err
+						}
+						versionFound = feature.Version == version
+					}
+				}
 				if _, ok := found[entry.Name]; ok {
 					found[entry.Name] = entry.UncompressedSize64 > 0
 				}
+			}
+			if !versionFound {
+				return fmt.Errorf("%s does not contain release version %s", f.Name, version)
 			}
 			for name, ok := range found {
 				if !ok {

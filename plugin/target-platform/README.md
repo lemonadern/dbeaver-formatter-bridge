@@ -29,8 +29,9 @@ Maven `clean` preserves the prepared dependencies.
 Delete `plugin/target-platform/target/` to remove them and the temporary publisher configuration.
 
 The [build helper](../../scripts/build-plugin.go) runs Maven `clean verify` and passes the local repository as an encoded file URI.
-It also gives the plugin and feature a UTC timestamp qualifier, which distinguishes later snapshot builds when installing an update.
+For development versions ending in `.qualifier`, it supplies a UTC timestamp to distinguish snapshot updates.
 Builds started within the same second share a qualifier.
+Fixed release versions such as `0.1.0` retain that exact version and do not acquire a timestamp.
 
 To invoke Maven directly, supply `-Ddbeaver.target.uri=<absolute file URI>` and `-DforceContextQualifier=<UTC timestamp>` as the helper does.
 

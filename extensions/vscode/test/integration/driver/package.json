@@ -1,0 +1,8 @@
+{
+  "name": "dbeaver-formatter-test-driver",
+  "publisher": "lemonadern-tests",
+  "version": "0.0.0",
+  "engines": { "vscode": "^1.100.0" },
+  "main": "./index.js",
+  "capabilities": { "untrustedWorkspaces": { "supported": true } }
+}

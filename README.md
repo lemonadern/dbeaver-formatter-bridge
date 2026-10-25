@@ -6,9 +6,11 @@ DBeaver の整形設定と、接続先の SQL 方言を使えます。
 
 ## 利用
 
-1. [導入手順](docs/installation.md) に従い、DBeaver にプラグインを導入して再起動します。
+1. [Releases](https://github.com/lemonadern/dbeaver-formatter-bridge/releases) から配布物を取得し、[導入手順](docs/installation.md)に従って DBeaver にプラグインを導入して再起動します。
 2. OS に合う CLI を `dbeaver-format`（Windows は `.exe`）という名前で PATH に配置します。
 3. DBeaver を起動した状態で、ワークスペースを指定して SQL を標準入力へ渡します。
+
+Go を使う場合は、CLI を `go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@v0.1.0` で導入することもできます。
 
 ```sh
 dbeaver-format --workspace "/path/to/DBeaverData/workspace6" < input.sql
@@ -41,7 +43,10 @@ dbeaver-format --workspace "/path/to/workspace6" --active-editor < input.sql
 
 ## エディタとの接続
 
-[efm-langserver の設定例](examples/efm-langserver/README.md) を参照してください。
+VS Code では[専用拡張の導入と設定](extensions/vscode/README.md)を参照してください。
+ローカルにインストールできる VSIX を用意しており、PATH 上の CLI を利用します。
+
+ほかのエディタから使う場合は [efm-langserver の設定例](examples/efm-langserver/README.md) を参照してください。
 未保存のバッファを標準入力へ渡せるため、SQL ファイルを先に保存する必要はありません。
 
 ## 開発
@@ -66,7 +71,7 @@ go test -race ./...
 go vet ./...
 ```
 
-DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip` に生成されます。
+DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-0.1.0.zip` に生成されます。
 CLI の OS 別配布 ZIP とチェックサムは `dist/` に生成されます。
 
 [検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[リポジトリ構成](docs/development.md) を参照してください。

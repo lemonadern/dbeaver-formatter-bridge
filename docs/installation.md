@@ -2,13 +2,14 @@
 
 DBeaver、DBeaver Formatter Bridge のプラグイン、CLI を用意します。
 対応する環境は [互換性](compatibility.md) を参照してください。
-エディタから使う場合は、[efm-langserver の設定例](../examples/efm-langserver/README.md) も参照してください。
+VS Code は[専用拡張の導入手順](../extensions/vscode/README.md)、ほかのエディタは [efm-langserver の設定例](../examples/efm-langserver/README.md)を参照してください。
 
 ## 配布物の取得
 
-[CI の成果物](ci.md#配布物を取得する) から、`plugin-update-site` と `cli-distributions` を取得して展開します。
-前者にはプラグイン導入用 ZIP、後者には OS と CPU ごとの CLI 配布 ZIP が入っています。
-CLI の配布 ZIP は、自分の環境に合うものを選んで展開してください。
+[GitHub Releases](https://github.com/lemonadern/dbeaver-formatter-bridge/releases) から、プラグインの ZIP と、自分の OS と CPU に合う CLI の ZIP を取得します。
+VS Code 拡張を使う場合は `.vsix` も取得してください。
+`SHA256SUMS` で配布ファイルのチェックサムを確認できます。
+開発中のビルドは [CI の成果物](ci.md#配布物を取得する)から取得できます。
 
 ## DBeaver プラグイン
 
@@ -17,6 +18,7 @@ CLI の配布 ZIP は、自分の環境に合うものを選んで展開して�
 3. **DBeaver Formatter Bridge** を選んで導入し、DBeaver を再起動します。
 
 更新する場合も、新しい ZIP を指定して同じ手順を実行します。
+以前の開発版 `0.1.0.<timestamp>` を導入している場合は、正式版 `0.1.0` のほうが低いバージョンとして扱われるため、先に開発版をアンインストールして再起動し、正式版 ZIP を導入してください。
 削除する場合は **Help → About DBeaver → Installation Details → Installed Software** で DBeaver Formatter Bridge を選び、**Uninstall** 後に再起動します。
 メニュー名は OS と表示言語で異なります。
 
@@ -25,6 +27,17 @@ CLI の配布 ZIP は、自分の環境に合うものを選んで展開して�
 CLI 配布 ZIP 内の `dbeaver-format`（Windows は `dbeaver-format.exe`）を PATH に配置します。
 macOS と Linux で実行権限がない場合は、`chmod +x dbeaver-format` を実行してください。
 配布済み CLI の実行に Go、Maven、追加 JDK は不要です。
+
+Go を使う場合は、ZIP の代わりに以下で CLI をインストールできます。
+Go 1.27.2 以上が必要です。
+
+```sh
+go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@v0.1.0
+```
+
+インストール先の `GOBIN`（未指定なら `GOPATH/bin`、通常はホームディレクトリの `go/bin`）を PATH に追加してください。
+Go モジュールは `cli/` にあるため、上記の版は `cli/v0.1.0` タグに対応します。
+CLI を入れても、DBeaver とプラグインは別途必要です。
 
 DBeaver を起動し、ワークスペースを指定して SQL を標準入力へ渡します。
 

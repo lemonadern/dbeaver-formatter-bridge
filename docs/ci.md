@@ -16,6 +16,12 @@ PowerShell と Git Bash からの UTF-8 入力、空白と日本語を含む CLI
 テスト用 SQL タブによる `--active-editor` の検証範囲は [テストの実行](testing.md#選択中の-sql-タブの統合テスト) を参照してください。
 取得する DBeaver とチェックサム、起動手順は [Windows テストのスクリプト](../scripts/ci/windows-dbeaver.ps1) を参照してください。
 
+VSIX のジョブでは共通の VSIX を一度作成し、収録ファイルとライセンスを検証します。
+同じ VSIX を Windows、macOS、Linux の隔離した VS Code に導入し、実 CLI と代替 RPC サーバーを使って三つの接続モードを検証します。
+最低対応版の VS Code を使い、未信頼ワークスペースで拡張が無効になることも確認します。
+Windows の実 DBeaver 試験では、既存の SQL タブの試験完了後にインストール済み拡張から `activeEditor` と `global` を検証します。
+接続 ID モードの成功試験は代替 RPC によるもので、実 DB や JDBC 接続の検証とは区別します。
+
 ## 配布物を取得する
 
 GitHub の **Actions → CI** で成功した実行を開き、**Artifacts** からダウンロードします。
@@ -24,10 +30,13 @@ GitHub の **Actions → CI** で成功した実行を開き、**Artifacts** か
 | --- | --- |
 | `cli-distributions` | OS と CPU ごとの CLI 配布 ZIP と `SHA256SUMS` |
 | `plugin-update-site` | DBeaver に導入するプラグイン導入用 ZIP |
+| `vscode-vsix` | ローカル導入用 VSIX と `VSIX-SHA256SUMS` |
 
 CLI の ZIP には実行ファイル、ライセンス文書、ビルド情報を含めます。
 プラグインの ZIP には、プラグイン本体と導入用のメタデータを含めます。
-導入方法は [導入手順](installation.md) を参照してください。
+VSIX は[拡張の導入手順](../extensions/vscode/README.md)、CLI とプラグインは[導入手順](installation.md)を参照してください。
+artifact の保存期間は 7 日です。
+`vscode-vsix` はビルドのジョブで保存するため、利用時には後続の導入テストと実 DBeaver のジョブも成功していることを確認してください。
 
 Windows のテストが失敗した場合は、`windows-dbeaver-failure-report` に失敗した段階と起動エラーの要約を保存します。
 インスタンスの認証情報と DBeaver の生ログは保存対象から除外します。

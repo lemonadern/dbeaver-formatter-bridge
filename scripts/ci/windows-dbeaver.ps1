@@ -81,7 +81,7 @@ try {
     $stage = 'p2 installation'
     $launcher = @(Get-ChildItem (Join-Path $dbeaverHome 'plugins') -Filter 'org.eclipse.equinox.launcher_*.jar')
     if ($launcher.Count -ne 1) { throw 'Expected exactly one Equinox launcher' }
-    $site = (Resolve-Path 'plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip').Path
+    $site = (Resolve-Path 'plugin/repository/target/formatter-bridge-update-site-0.1.0.zip').Path
     $repository = 'jar:' + ([Uri]::new($site)).AbsoluteUri + '!/'
     $install = Start-TestProcess -Arguments @('-jar', $launcher[0].FullName,
         '-nosplash', '-application', 'org.eclipse.equinox.p2.director',
@@ -176,6 +176,12 @@ try {
     $stage = 'real bridge integration'
     & go run ./scripts/test-bridge.go --cli $cli --workspace $workspace
     Report 'PASS: bridge Unicode, LF/CRLF, empty input, failures and concurrency'
+
+    $stage = 'installed VSIX and real DBeaver'
+    $env:DBEAVER_BRIDGE_CLI = $cli
+    $env:DBEAVER_BRIDGE_WORKSPACE = $workspace
+    & npm --prefix extensions/vscode run test:vsix
+    Report 'PASS: installed VSIX through PATH CLI to real DBeaver active-editor and global formatting'
 
     $stage = 'PowerShell UTF-8 stdin'
     $sql = "select '日本語😀' as greeting,'C:\temp\new.sql' as path from example where id=1;"
