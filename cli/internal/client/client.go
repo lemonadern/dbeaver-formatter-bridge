@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 // Package client sends SQL to the bridge command in a local DBeaver instance.
 package client
 

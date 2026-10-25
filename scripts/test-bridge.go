@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build ignore
 
 // Exercise a running DBeaver bridge without modifying its settings or databases.

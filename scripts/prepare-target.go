@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build ignore
 
 // Prepare a local p2 target without modifying the installed DBeaver.

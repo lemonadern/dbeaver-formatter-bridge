@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build ignore
 
 // Run with go run scripts/test-efm.go --efm PATH --cli PATH --workspace PATH.

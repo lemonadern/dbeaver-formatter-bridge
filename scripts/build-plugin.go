@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 //go:build ignore
 
 // Build the plugin with an escaped, platform-correct local target URI.

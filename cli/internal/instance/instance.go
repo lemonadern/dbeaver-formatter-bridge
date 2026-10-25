@@ -1,3 +1,6 @@
+// Copyright 2026 lemonadern
+// SPDX-License-Identifier: Apache-2.0
+
 // Package instance reads DBeaver's Java properties instance registry.
 package instance
 
