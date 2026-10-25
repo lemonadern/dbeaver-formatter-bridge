@@ -58,7 +58,8 @@ GUI メニューを使った導入や DB 接続別設定の一致は、この結
 
 - 対象 DB の接続済み ID、方言、接続別設定と GUI エディタの整形結果の一致。
 - 未接続の実接続 ID と複数プロジェクトでの ID 重複。
-- Windows/Linux の実行、efm、p2 導入・更新・削除。
+- 通常の Windows 利用環境での efm、p2 更新・削除。Windows CI の導入と整形は確認済み。
+- Linux の実 DBeaver 連携、efm、p2 導入・更新・削除。
 - 各 OS で日本語や空白を含む配置パス、端末の文字コード。
 
 ## 配布と CI の検証
@@ -70,3 +71,9 @@ GUI メニューを使った導入や DB 接続別設定の一致は、この結
 go test -v ./scripts/package-cli.go ./scripts/package-cli_test.go
 go run ./scripts/ci/verify-site.go
 ```
+
+## 2026-10-25 の GitHub Actions 結果
+
+[実行 40184924311](https://github.com/lemonadern/dbeaver-formatter-bridge/actions/runs/40184924311) は全 4 ジョブ成功しました。
+Windows x64 では、p2 導入後の公式 DBeaver GUI と CLI の実整形、PowerShell・Git Bash の UTF-8 入力、空白・日本語パスを確認しました。
+対象は CE 26.2.2 の標準 SQL 方言で、実 DB 接続別の設定や Windows 上の efm はこのテストに含みません。

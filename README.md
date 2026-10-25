@@ -6,7 +6,8 @@ DBeaver が選択しているフォーマッタを呼び出し、その接続の
 
 **開発版です。**
 macOS arm64 / DBeaver CE 26.2.2 で GUI・CLI・efm の連携を検証しています。
-Windows と Linux はビルド確認までで、実機での導入・GUI 連携は未検証です。
+Windows x64 / CE 26.2.2 は CI で p2 導入・GUI・CLI・PowerShell・Git Bash の連携を確認済みです。
+Linux の CLI テストは CI で成功していますが、Linux の実 DBeaver 連携は未検証です。
 対応状況の詳細は [互換性](docs/compatibility.md) を参照してください。
 
 ## 利用
@@ -71,7 +72,7 @@ go vet ./...
 ## CI
 
 実 DBeaver を使う Windows CI と、3 OS の CLI テストを定義しています。
-GitHub 上での実行はまだ確認していません。
+[2026-10-25 の CI](https://github.com/lemonadern/dbeaver-formatter-bridge/actions/runs/40184924311) で全 4 ジョブが成功しています。
 [CI と配布物](docs/ci.md) を参照してください。
 
 ## ライセンス
