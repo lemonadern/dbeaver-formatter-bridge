@@ -177,6 +177,12 @@ try {
     & go run ./scripts/test-bridge.go --cli $cli --workspace $workspace
     Report 'PASS: bridge Unicode, LF/CRLF, empty input, failures and concurrency'
 
+    $stage = 'installed VSIX and real DBeaver'
+    $env:DBEAVER_BRIDGE_CLI = $cli
+    $env:DBEAVER_BRIDGE_WORKSPACE = $workspace
+    & npm --prefix extensions/vscode run test:vsix
+    Report 'PASS: installed VSIX through PATH CLI to real DBeaver active-editor and global formatting'
+
     $stage = 'PowerShell UTF-8 stdin'
     $sql = "select '日本語😀' as greeting,'C:\temp\new.sql' as path from example where id=1;"
     $formatted = ($sql | & $cli --workspace $workspace) -join "`n"

@@ -91,3 +91,39 @@ go run ./scripts/ci/verify-site.go
 
 導入用 ZIP にプラグインとインストール単位の JAR があり、両方に LICENSE と COPYRIGHT が含まれることを検証します。
 自動実行するテストと成果物の取得方法は [CI](ci.md) を参照してください。
+
+## VS Code 拡張の統合テスト
+
+依存の取得と VSIX の作成後、リポジトリ直下から実行します。
+Go でそのマシン用の CLI をビルドするため、Go も PATH に必要です。
+
+```sh
+npm --prefix extensions/vscode run test:vsix
+```
+
+初回は最低対応版の VS Code をダウンロードします。
+Linux の GUI がない環境では `xvfb-run -a npm --prefix extensions/vscode run test:vsix` とします。
+既存の VS Code 本体を使う場合は `VSCODE_EXECUTABLE_PATH`、別の版を取得する場合は `VSCODE_TEST_VERSION` を指定します。
+これらはテストランナーの環境変数であり、拡張の利用者向け設定ではありません。
+
+テストは一時的なユーザーデータと拡張配置先に完成した VSIX をインストールし、その拡張を別のテスト用拡張から操作します。
+実行中の拡張の配置先を確認し、開発ツリーの JavaScript を誤って試験しないようにします。
+CLI は空白と日本語を含む一時 PATH に配置し、実行後にテスト用ファイルを削除します。
+通常はローカルの代替 RPC サーバーを使い、実 DB 接続は行いません。
+
+未保存 SQL、三つの接続モード、文字列の保持、空結果、失敗、処理中の変更、タイムアウト、未信頼ワークスペースを確認します。
+整形結果は VS Code が最小限の編集に変換する場合があるため、編集適用後の全文で比較します。
+VS Code の文書が CRLF の場合、DBeaver が LF を返しても適用後は CRLF になります。
+CLI の出力そのものを変更しないことは、子プロセス制御の単体テストで確認します。
+
+実 DBeaver を使う場合は、プラグイン導入済みの DBeaver を起動し、接続済みの SQL タブを選んだ状態で以下を指定します。
+
+```sh
+DBEAVER_BRIDGE_CLI=/absolute/path/dbeaver-format \
+DBEAVER_BRIDGE_WORKSPACE=/absolute/path/workspace6 \
+npm --prefix extensions/vscode run test:vsix
+```
+
+この場合は `activeEditor` と `global` を、CLI 単体の出力と比較します。
+Windows CI は配布物に含まれないテスト用 SQL タブを使うため、通常の SQL エディタの初期化や実 DB の SQL 方言まで確認したことにはなりません。
+普段使う VS Code へ勝手に拡張を導入することもありません。
