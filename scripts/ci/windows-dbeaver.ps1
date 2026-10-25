@@ -18,7 +18,7 @@ $report = Join-Path $build 'ci-report.txt'
 Set-Content -LiteralPath $report -Value 'DBeaver CE 26.2.2 / Windows x64 integration' -Encoding utf8
 $stage = 'initialization'
 $gui = $null
-$temp = Join-Path ([IO.Path]::GetTempPath()) ('bridge CI 日本語 ' + [Guid]::NewGuid().ToString('N'))
+$temp = Join-Path ([IO.Path]::GetTempPath()) ('bridge CI ' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory $temp | Out-Null
 
 function Report([string] $message) {
@@ -95,10 +95,14 @@ try {
 
     $stage = 'GUI startup and readiness'
     $workspace = Join-Path $temp 'workspace 空白'
+    # Windows java.exe converts native arguments through the system ANSI code page.
+    # Keep its own paths ASCII and pass the Unicode workspace as an encoded file URI.
+    # The native Go CLI still receives the real Unicode filesystem path.
     # The extracted application and its p2-managed configuration are disposable.
     # The workspace and user.home are isolated from the CI account as well.
     $gui = Start-Java -Arguments @('-jar', $launcher[0].FullName, '-nosplash',
-        '-configuration', (Join-Path $dbeaverHome 'configuration'), '-data', $workspace)
+        '-configuration', (Join-Path $dbeaverHome 'configuration'),
+        '-data', ([Uri]::new($workspace)).AbsoluteUri)
     $ready = $false
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ($timer.Elapsed.TotalSeconds -lt 120) {
