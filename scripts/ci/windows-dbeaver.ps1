@@ -57,11 +57,11 @@ try {
     Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $temp 'application')
     $executables = @(Get-ChildItem (Join-Path $temp 'application') -Recurse -Filter dbeaver.exe)
     if ($executables.Count -ne 1) { throw 'Expected exactly one extracted DBeaver executable' }
-    $home = $executables[0].DirectoryName
+    $dbeaverHome = $executables[0].DirectoryName
     Report 'PASS: pinned official DBeaver download SHA-256'
 
     $stage = 'plugin build'
-    & go run ./scripts/prepare-target.go -dbeaver-home $home -java (Join-Path $env:JAVA_HOME 'bin/java.exe')
+    & go run ./scripts/prepare-target.go -dbeaver-home $dbeaverHome -java (Join-Path $env:JAVA_HOME 'bin/java.exe')
     & go run ./scripts/build-plugin.go
     & go run ./scripts/ci/verify-site.go
     $cli = Join-Path $temp 'CLI 配置/dbeaver-format.exe'
@@ -71,7 +71,7 @@ try {
     Report 'PASS: Tycho plugin and native Windows CLI build'
 
     $stage = 'p2 installation'
-    $launcher = @(Get-ChildItem (Join-Path $home 'plugins') -Filter 'org.eclipse.equinox.launcher_*.jar')
+    $launcher = @(Get-ChildItem (Join-Path $dbeaverHome 'plugins') -Filter 'org.eclipse.equinox.launcher_*.jar')
     if ($launcher.Count -ne 1) { throw 'Expected exactly one Equinox launcher' }
     $site = (Resolve-Path 'plugin/repository/target/formatter-bridge-update-site-0.1.0-SNAPSHOT.zip').Path
     $repository = 'jar:' + ([Uri]::new($site)).AbsoluteUri + '!/'
@@ -79,8 +79,8 @@ try {
         '-nosplash', '-application', 'org.eclipse.equinox.p2.director',
         '-repository', $repository,
         '-installIU', 'com.github.lemonadern.dbeaver.formatter.bridge.feature.feature.group',
-        '-destination', $home, '-profile', 'DefaultProfile',
-        '-configuration', (Join-Path $home 'configuration'),
+        '-destination', $dbeaverHome, '-profile', 'DefaultProfile',
+        '-configuration', (Join-Path $dbeaverHome 'configuration'),
         '-data', (Join-Path $temp 'director-workspace'))
     try {
         if (-not $install.Process.WaitForExit(180000)) { throw 'p2 installation timed out' }
@@ -96,7 +96,7 @@ try {
     # The extracted application and its p2-managed configuration are disposable.
     # The workspace and user.home are isolated from the CI account as well.
     $gui = Start-Java -Arguments @('-jar', $launcher[0].FullName, '-nosplash',
-        '-configuration', (Join-Path $home 'configuration'), '-data', $workspace)
+        '-configuration', (Join-Path $dbeaverHome 'configuration'), '-data', $workspace)
     $ready = $false
     $timer = [Diagnostics.Stopwatch]::StartNew()
     while ($timer.Elapsed.TotalSeconds -lt 120) {
