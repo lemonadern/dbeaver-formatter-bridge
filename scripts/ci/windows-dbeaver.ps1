@@ -11,6 +11,8 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = $OutputEncoding
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+$version = ([IO.File]::ReadAllText((Join-Path $root 'VERSION'))).Trim()
+if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid VERSION' }
 Set-Location $root
 $build = Join-Path $root 'build'
 New-Item -ItemType Directory -Force $build | Out-Null
@@ -81,7 +83,7 @@ try {
     $stage = 'p2 installation'
     $launcher = @(Get-ChildItem (Join-Path $dbeaverHome 'plugins') -Filter 'org.eclipse.equinox.launcher_*.jar')
     if ($launcher.Count -ne 1) { throw 'Expected exactly one Equinox launcher' }
-    $site = (Resolve-Path 'plugin/repository/target/formatter-bridge-update-site-0.1.0.zip').Path
+    $site = (Resolve-Path ("plugin/repository/target/formatter-bridge-update-site-" + $version + ".zip")).Path
     $repository = 'jar:' + ([Uri]::new($site)).AbsoluteUri + '!/'
     $install = Start-TestProcess -Arguments @('-jar', $launcher[0].FullName,
         '-nosplash', '-application', 'org.eclipse.equinox.p2.director',

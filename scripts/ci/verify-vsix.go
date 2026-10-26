@@ -10,15 +10,23 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"encoding/xml"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func main() {
-	file := flag.String("vsix", "dist/dbeaver-formatter-bridge-0.1.0.vsix", "VSIX archive")
+	data, err := os.ReadFile("VERSION")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	version := strings.TrimSpace(string(data))
+	file := flag.String("vsix", "dist/dbeaver-formatter-bridge-"+version+".vsix", "VSIX archive")
 	writeChecksum := flag.Bool("write-checksum", false, "write checksum after verification instead of comparing it")
 	flag.Parse()
 	if err := verify(*file, *writeChecksum); err != nil {
@@ -60,6 +68,21 @@ func verify(name string, writeChecksum bool) error {
 			return closeErr
 		}
 		switch entry.Name {
+		case "extension.vsixmanifest":
+			var metadata struct {
+				XMLName  xml.Name `xml:"PackageManifest"`
+				Identity struct {
+					ID        string `xml:"Id,attr"`
+					Version   string `xml:"Version,attr"`
+					Publisher string `xml:"Publisher,attr"`
+				} `xml:"Metadata>Identity"`
+			}
+			if err := xml.Unmarshal(contents, &metadata); err != nil {
+				return err
+			}
+			if metadata.Identity.ID != "dbeaver-formatter-bridge" || metadata.Identity.Publisher != "lemonadern" || metadata.Identity.Version != expectedVersion() {
+				return fmt.Errorf("VSIX identity/version mismatch")
+			}
 		case "extension/LICENSE.txt", "extension/COPYRIGHT":
 			source, err := os.ReadFile(map[string]string{"extension/LICENSE.txt": "LICENSE", "extension/COPYRIGHT": "COPYRIGHT"}[entry.Name])
 			if err != nil {
@@ -80,7 +103,7 @@ func verify(name string, writeChecksum bool) error {
 			if err := json.Unmarshal(contents, &manifest); err != nil {
 				return err
 			}
-			if manifest.Name != "dbeaver-formatter-bridge" || manifest.Publisher != "lemonadern" || manifest.Version == "" || manifest.Main != "./out/src/extension.js" || manifest.License != "Apache-2.0" || len(manifest.Dependencies) != 0 || len(manifest.ExtensionKind) != 1 || manifest.ExtensionKind[0] != "ui" || manifest.Capabilities.UntrustedWorkspaces.Supported {
+			if manifest.Name != "dbeaver-formatter-bridge" || manifest.Publisher != "lemonadern" || manifest.Version != expectedVersion() || manifest.Main != "./out/src/extension.js" || manifest.License != "Apache-2.0" || len(manifest.Dependencies) != 0 || len(manifest.ExtensionKind) != 1 || manifest.ExtensionKind[0] != "ui" || manifest.Capabilities.UntrustedWorkspaces.Supported {
 				return fmt.Errorf("invalid VSIX extension metadata")
 			}
 		}
@@ -107,4 +130,12 @@ func verify(name string, writeChecksum bool) error {
 		return fmt.Errorf("VSIX checksum mismatch")
 	}
 	return nil
+}
+
+func expectedVersion() string {
+	data, err := os.ReadFile("VERSION")
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(data))
 }

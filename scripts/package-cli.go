@@ -17,6 +17,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -52,6 +53,14 @@ func packageCLI(root, input, out string) error {
 	}
 	if !filepath.IsAbs(out) {
 		out = filepath.Join(root, out)
+	}
+	versionData, err := os.ReadFile(filepath.Join(root, "VERSION"))
+	if err != nil {
+		return err
+	}
+	version := strings.TrimSpace(string(versionData))
+	if !regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`).MatchString(version) {
+		return fmt.Errorf("invalid VERSION")
 	}
 	var shared []archiveEntry
 	for _, name := range []string{"LICENSE", "COPYRIGHT"} {
@@ -95,7 +104,7 @@ func packageCLI(root, input, out string) error {
 			return err
 		}
 		entries = append(entries, archiveEntry{"BUILD-INFO.txt", []byte(info.String()), 0644})
-		artifacts = append(artifacts, artifact{name + ".zip", entries})
+		artifacts = append(artifacts, artifact{"dbeaver-format-" + version + "-" + target.os + "-" + target.arch + ".zip", entries})
 	}
 	// Validate every input before creating output; leave unrelated distributions intact.
 	if err := os.MkdirAll(out, 0755); err != nil {

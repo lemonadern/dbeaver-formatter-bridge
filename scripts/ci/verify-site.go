@@ -18,8 +18,14 @@ import (
 )
 
 func main() {
-	site := flag.String("site", "plugin/repository/target/formatter-bridge-update-site-0.1.0.zip", "p2 site ZIP")
-	version := flag.String("version", "0.1.0", "expected release bundle and feature version")
+	data, err := os.ReadFile("VERSION")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	current := strings.TrimSpace(string(data))
+	site := flag.String("site", "plugin/repository/target/formatter-bridge-update-site-"+current+".zip", "p2 site ZIP")
+	version := flag.String("version", current, "expected release bundle and feature version")
 	flag.Parse()
 	if err := verify(*site, *version); err != nil {
 		fmt.Fprintln(os.Stderr, err)

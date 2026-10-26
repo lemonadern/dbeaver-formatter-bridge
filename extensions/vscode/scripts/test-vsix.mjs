@@ -14,7 +14,8 @@ const root = path.resolve(extensionRoot, '../..');
 // macOS IPC sockets have a 103-byte path limit; keep profile roots short.
 const temp = await mkdtemp(path.join(process.platform === 'darwin' ? '/tmp' : os.tmpdir(), 'bridge-vsix-'));
 const executable = process.env.VSCODE_EXECUTABLE_PATH || await downloadAndUnzipVSCode(process.env.VSCODE_TEST_VERSION || '1.100.0');
-const vsix = path.resolve(process.env.BRIDGE_TEST_VSIX || path.join(root, 'dist/dbeaver-formatter-bridge-0.1.0.vsix'));
+const packageMetadata = JSON.parse(await readFile(path.join(extensionRoot, 'package.json'), 'utf8'));
+const vsix = path.resolve(process.env.BRIDGE_TEST_VSIX || path.join(root, `dist/dbeaver-formatter-bridge-${packageMetadata.version}.vsix`));
 const realWorkspace = process.env.DBEAVER_BRIDGE_WORKSPACE;
 const realCLI = process.env.DBEAVER_BRIDGE_CLI;
 assert.equal(Boolean(realWorkspace), Boolean(realCLI), 'Both real-DBeaver environment variables must be supplied together');
