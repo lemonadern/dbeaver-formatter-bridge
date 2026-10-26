@@ -21,7 +21,7 @@ const testSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 const testVersion = "0.2.0"
 const testRun int64 = 23
 
-var jobNames = []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module"}
+var jobNames = []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
 
 func makeZip(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
@@ -589,5 +589,67 @@ func TestPublicationRejectsChangedArtifactProvenanceEvenWhenFileHashesMatch(t *t
 			}
 			noWrites(t, f)
 		})
+	}
+}
+
+func setProducerAttempt(f *fakeGH, component string, attempt int) {
+	ref := f.refs[component]
+	ref.Attempt = attempt
+	ref.Name = artifactPrefixes[component] + "-23-" + strconv.Itoa(attempt)
+	f.refs[component] = ref
+	metadata := f.metas[ref.ID]
+	metadata.Name = ref.Name
+	f.metas[ref.ID] = metadata
+}
+func setJobAttempt(f *fakeGH, name string, attempt int) {
+	for _, job := range f.jobs {
+		if job["name"] == "Build and test / "+name {
+			job["run_attempt"] = attempt
+		}
+	}
+}
+func TestPublicationBindsTestAttemptsToTheRecordedProducers(t *testing.T) {
+	cases := map[string]func(*fakeGH){
+		"producer-job-is-old":  func(f *fakeGH) { setProducerAttempt(f, "vscode", 2) },
+		"vscode-tests-are-old": func(f *fakeGH) { setProducerAttempt(f, "vscode", 2); setJobAttempt(f, "VSIX / Package", 2) },
+		"real-dbeaver-tested-old-vsix": func(f *fakeGH) {
+			setProducerAttempt(f, "vscode", 2)
+			setJobAttempt(f, "VSIX / Package", 2)
+			for _, system := range []string{"ubuntu-24.04", "macos-14", "windows-2025"} {
+				setJobAttempt(f, "VSIX / "+system, 2)
+			}
+		},
+		"assembly-tested-old-cli": func(f *fakeGH) { setProducerAttempt(f, "cli", 2); setJobAttempt(f, "CLI / Package", 2) },
+	}
+	for name, change := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := fake(t)
+			f.currentAttempt = 2
+			change(f)
+			if err := f.engine().publish("", testRun, 2, f.ids(), false); err == nil {
+				t.Fatal("accepted tests predating source artifacts")
+			}
+			noWrites(t, f)
+		})
+	}
+}
+func TestPublicationAcceptsMixedProducerAttemptsAfterFailedJobReruns(t *testing.T) {
+	f := fake(t)
+	f.currentAttempt = 3
+	setProducerAttempt(f, "cli", 2)
+	setJobAttempt(f, "CLI / Package", 2)
+	setProducerAttempt(f, "vscode", 2)
+	setJobAttempt(f, "VSIX / Package", 2)
+	setProducerAttempt(f, "plugin", 3)
+	setJobAttempt(f, "Real DBeaver CE 26.2.2 / Windows x64", 3)
+	for _, system := range []string{"ubuntu-24.04", "macos-14", "windows-2025"} {
+		setJobAttempt(f, "VSIX / "+system, 2)
+	}
+	setJobAttempt(f, "Release assets / Validate assembly", 3)
+	if err := f.engine().publish("", testRun, 3, f.ids(), false); err != nil {
+		t.Fatal(err)
+	}
+	if f.rel.Draft || len(f.rel.Assets) != 9 {
+		t.Fatal("mixed producer recovery did not publish")
 	}
 }

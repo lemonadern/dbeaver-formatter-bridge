@@ -370,7 +370,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 			r.Artifacts[component] = ref
 		}
 	}
-	if err = e.client.verifyRun(r.RunID, e.sha, e.tag, r.Attempt); err != nil {
+	if err = e.client.verifyRun(r.RunID, e.sha, e.tag, r.Attempt, r.Artifacts); err != nil {
 		return err
 	}
 	temp, err := os.MkdirTemp("", "dbeaver-release-")

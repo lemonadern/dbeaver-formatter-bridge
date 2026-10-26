@@ -161,7 +161,7 @@ func (c *client) artifact(id, runID int64, sha, component string) (artifactRef, 
 	}
 	return artifactRef{ID: a.ID, Name: a.Name, RunID: runID, Attempt: attempt, Digest: a.Digest}, nil
 }
-func (c *client) verifyRun(id int64, sha, tag string, attempt int) error {
+func (c *client) verifyRun(id int64, sha, tag string, attempt int, artifacts map[string]artifactRef) error {
 	var run struct {
 		SHA     string `json:"head_sha"`
 		Event   string `json:"event"`
@@ -202,7 +202,8 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int) error {
 			return fmt.Errorf("job listing exceeded pagination limit")
 		}
 	}
-	required := []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module"}
+	required := []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
+	selected := map[string]job{}
 	for _, suffix := range required {
 		matches := 0
 		for name, j := range latest {
@@ -211,11 +212,31 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int) error {
 				if j.Status != "completed" || j.Conclusion != "success" {
 					return fmt.Errorf("required release job did not succeed: %s", name)
 				}
+				selected[suffix] = j
 			}
 		}
 		if matches != 1 {
 			return fmt.Errorf("expected one successful job for %s, got %d", suffix, matches)
 		}
+	}
+	producerJobs := map[string]string{"cli": "CLI / Package", "plugin": "Real DBeaver CE 26.2.2 / Windows x64", "vscode": "VSIX / Package"}
+	maxProducer := 0
+	for component, name := range producerJobs {
+		source, ok := artifacts[component]
+		if !ok || source.Attempt < 1 || source.Attempt > attempt || selected[name].Attempt != source.Attempt {
+			return fmt.Errorf("artifact producer does not match validated job attempt: %s", component)
+		}
+		if source.Attempt > maxProducer {
+			maxProducer = source.Attempt
+		}
+	}
+	for _, consumer := range []string{"VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64"} {
+		if selected[consumer].Attempt < artifacts["vscode"].Attempt {
+			return fmt.Errorf("VSIX test predates the recorded VSIX producer: %s", consumer)
+		}
+	}
+	if selected["Release assets / Validate assembly"].Attempt < maxProducer {
+		return fmt.Errorf("assembly validation predates a recorded producer")
 	}
 	return nil
 }
