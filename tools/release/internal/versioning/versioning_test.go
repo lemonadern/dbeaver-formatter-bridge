@@ -20,6 +20,16 @@ var definitionFiles = []string{
 
 func fixture(t *testing.T) string {
 	t.Helper()
+	root := rawFixture(t)
+	if err := Prepare(root, "0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+// rawFixture copies the checkout exactly, before any preparation can repair it.
+func rawFixture(t *testing.T) string {
+	t.Helper()
 	root := t.TempDir()
 	source, err := filepath.Abs("../../../..")
 	if err != nil {
@@ -37,9 +47,6 @@ func fixture(t *testing.T) string {
 		if err := os.WriteFile(destination, data, 0644); err != nil {
 			t.Fatal(err)
 		}
-	}
-	if err := Prepare(root, "0.1.0"); err != nil {
-		t.Fatal(err)
 	}
 	return root
 }
@@ -187,14 +194,17 @@ func TestStagingFailureLeavesAllDefinitionsUnchanged(t *testing.T) {
 }
 
 func TestWindowsCRLFCheckAndPrepare(t *testing.T) {
-	root := fixture(t)
+	root := rawFixture(t)
 	for _, name := range definitionFiles {
 		file := filepath.Join(root, name)
 		data, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(file, bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n")), 0644); err != nil {
+		// The checkout may already use CRLF on Windows. Normalize first so
+		// converting it again never invents invalid CR-CR-LF line endings.
+		lf := bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+		if err := os.WriteFile(file, bytes.ReplaceAll(lf, []byte("\n"), []byte("\r\n")), 0644); err != nil {
 			t.Fatal(err)
 		}
 	}

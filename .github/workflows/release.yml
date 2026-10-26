@@ -110,16 +110,19 @@ jobs:
         if: steps.current.outputs.mode == 'new'
         with:
           artifact-ids: ${{ needs.build-test.outputs.cli_id }}
+          merge-multiple: true
           path: build/release-input/cli
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: steps.current.outputs.mode == 'new'
         with:
           artifact-ids: ${{ needs.build-test.outputs.plugin_id }}
+          merge-multiple: true
           path: build/release-input/plugin
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         if: steps.current.outputs.mode == 'new'
         with:
           artifact-ids: ${{ needs.build-test.outputs.vscode_id }}
+          merge-multiple: true
           path: build/release-input/vscode
       - name: Verify, attach, round-trip and publish
         if: steps.current.outputs.mode != 'done'

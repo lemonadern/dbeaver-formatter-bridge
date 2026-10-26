@@ -101,6 +101,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           artifact-ids: ${{ needs.vscode-package.outputs.artifact-id }}
+          merge-multiple: true
           path: dist
       - name: Verify VSIX
         run: go run ./scripts/ci/verify-vsix.go
@@ -202,6 +203,7 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           artifact-ids: ${{ needs.vscode-package.outputs.artifact-id }}
+          merge-multiple: true
           path: dist
       - name: Verify VSIX
         run: go run ./scripts/ci/verify-vsix.go
@@ -248,14 +250,17 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           artifact-ids: ${{ needs.cli-package.outputs.artifact-id }}
+          merge-multiple: true
           path: build/release-input/cli
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           artifact-ids: ${{ needs.windows-dbeaver.outputs.artifact-id }}
+          merge-multiple: true
           path: build/release-input/plugin
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           artifact-ids: ${{ needs.vscode-package.outputs.artifact-id }}
+          merge-multiple: true
           path: build/release-input/vscode
       - name: Validate nine release assets without remote writes
         env:
