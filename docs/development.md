@@ -20,6 +20,8 @@ DBeaver プラグインは、接続先の方言と設定を選び、DBeaver の�
 | `tests/fixtures/` | 検証用 SQL |
 | `licenses/` | CLI に含まれる第三者ソフトウェアのライセンス表示 |
 | `extensions/vscode/` | PATH 上の CLI を呼ぶ VS Code 拡張と VSIX のビルド、導入テスト |
+| `tools/release/` | 版更新、二つのタグ、配布物検証、Release 公開の Go モジュール |
+| `VERSION` | 製品バージョンの管理元 |
 
 ビルドの実行手順は [README](../README.md#開発)、ライブラリの準備方法は [プラグインのビルド依存](../plugin/target-platform/README.md) を参照してください。
 
@@ -59,3 +61,21 @@ VSIX は `dist/` に出力します。
 更新時は `npm audit` と VSIX 作成、収録物の検証を再実行してください。
 
 実 VS Code を使う検証は [テストの実行](testing.md#vs-code-拡張の統合テスト) を参照してください。
+
+## リリース用ツール
+
+リポジトリ直下から `go run ./scripts/release.go check` で、生成した版定義の一致を検査できます。
+コマンドは `tools/release/` の独立した Go モジュールを実行し、利用者向け CLI の依存にはなりません。
+追加の Go ライブラリは不要です。
+
+```sh
+go -C tools/release test -race ./...
+```
+
+既存の actionlint 1.7.12 は GitHub の `concurrency.queue` に未対応なので、その診断だけを除外して検証します。
+ほかの YAML や式の検査は有効です。
+GitHub 側では PR 用の待機確認 workflow で三つのジョブを実行します。
+
+```sh
+actionlint -ignore 'unexpected key "queue" for "concurrency" section'
+```

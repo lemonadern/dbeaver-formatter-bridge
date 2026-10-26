@@ -3,7 +3,9 @@
 [GitHub Actions のワークフロー](../.github/workflows/ci.yml) は、`main` への push、pull request、手動実行でテストと配布物の作成を行います。
 作業ブランチへの push だけでは実行せず、PR の作成・更新で検証します。
 同じ PR が更新された場合は、その PR の古い実行を自動キャンセルします。
-対象 OS とツールの版はワークフローを参照してください。
+ビルドとテストの定義は [build-test.yml](../.github/workflows/build-test.yml) にまとめ、通常 CI とリリースで共有します。
+対象 OS とツールの版はこの定義を参照してください。
+最初に `VERSION` と生成済み定義の一致、リリース用ツールのテストを確認します。
 
 ## テスト
 
@@ -28,15 +30,19 @@ GitHub の **Actions → CI** で成功した実行を開き、**Artifacts** か
 
 | 名前 | 内容 |
 | --- | --- |
-| `cli-distributions` | OS と CPU ごとの CLI 配布 ZIP と `SHA256SUMS` |
-| `plugin-update-site` | DBeaver に導入するプラグイン導入用 ZIP |
-| `vscode-vsix` | ローカル導入用 VSIX と `VSIX-SHA256SUMS` |
+| `cli-distributions-<run ID>-<生成 attempt>` | OS と CPU ごとの CLI 配布 ZIP と `SHA256SUMS` |
+| `plugin-update-site-<run ID>-<生成 attempt>` | DBeaver に導入するプラグイン導入用 ZIP |
+| `vscode-vsix-<run ID>-<生成 attempt>` | ローカル導入用 VSIX と `VSIX-SHA256SUMS` |
+
+artifact 名に生成 attempt を含め、取得には生成ジョブが返した artifact ID を使います。
+失敗したジョブだけを再実行しても、先に成功した別 attempt のファイルを取り違えないためです。
+末尾の集約ジョブは配布9ファイルをリモートへ公開せず検証し、`release-assets-<run ID>-<attempt>` に保存します。
 
 CLI の ZIP には実行ファイル、ライセンス文書、ビルド情報を含めます。
 プラグインの ZIP には、プラグイン本体と導入用のメタデータを含めます。
 VSIX は[拡張の導入手順](../extensions/vscode/README.md)、CLI とプラグインは[導入手順](installation.md)を参照してください。
 artifact の保存期間は 7 日です。
-`vscode-vsix` はビルドのジョブで保存するため、利用時には後続の導入テストと実 DBeaver のジョブも成功していることを確認してください。
+VSIX artifact はビルドのジョブで保存するため、利用時には後続の導入テストと実 DBeaver のジョブも成功していることを確認してください。
 
 Windows のテストが失敗した場合は、`windows-dbeaver-failure-report` に失敗した段階と起動エラーの要約を保存します。
 インスタンスの認証情報と DBeaver の生ログは保存対象から除外します。
@@ -54,3 +60,16 @@ go run ./scripts/package-cli.go
 出力先は `dist/` です。
 Go や依存を更新する際は、[ライセンス一覧](../licenses/README.md) も更新してください。
 パッケージングではバイナリのビルド情報とライセンス文書のハッシュを照合します。
+
+## リリースの発動条件
+
+[Release](../.github/workflows/release.yml) は製品用 `vX.Y.Z` タグの push を入口にします。
+CLI 用の `cli/vX.Y.Z` タグ、通常の PR、main の push では Release の公開処理を実行しません。
+二つのタグの対応と既存 Release を確認し、新規の場合だけ共通のビルドとテストを呼びます。
+公開前には、一時キャッシュへの `go install` も確認します。
+ビルドは読み取り権限、公開ジョブは `contents: write` と来歴確認用の `actions: read` を使用します。
+
+リリース同士は `queue: max` と `cancel-in-progress: false` で待機させ、通常 CI とは別グループで管理します。
+PR ではリリース関連ファイルが変わる場合にだけ [待機確認](../.github/workflows/release-queue-probe.yml) の三ジョブも実行します。
+本番タグの作成や Release 公開を行うテストではありません。
+操作と復旧方針は[リリース手順](releases.md)を参照してください。

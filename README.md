@@ -10,7 +10,7 @@ DBeaver の整形設定と、接続先の SQL 方言を使えます。
 2. OS に合う CLI を `dbeaver-format`（Windows は `.exe`）という名前で PATH に配置します。
 3. DBeaver を起動した状態で、ワークスペースを指定して SQL を標準入力へ渡します。
 
-Go を使う場合は、CLI を `go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@v0.1.0` で導入することもできます。
+Go を使う場合は、CLI を `go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@latest` で導入することもできます。
 
 ```sh
 dbeaver-format --workspace "/path/to/DBeaverData/workspace6" < input.sql
@@ -71,10 +71,12 @@ go test -race ./...
 go vet ./...
 ```
 
-DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-0.1.0.zip` に生成されます。
+DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-<VERSION>.zip` に生成されます。
 CLI の OS 別配布 ZIP とチェックサムは `dist/` に生成されます。
 
 [検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[リポジトリ構成](docs/development.md) を参照してください。
+
+版更新と公開の操作は[リリース手順](docs/releases.md)を参照してください。
 
 ## ライセンス
 

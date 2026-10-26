@@ -32,11 +32,12 @@ Go を使う場合は、ZIP の代わりに以下で CLI をインストール�
 Go 1.27.2 以上が必要です。
 
 ```sh
-go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@v0.1.0
+go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@latest
 ```
 
 インストール先の `GOBIN`（未指定なら `GOPATH/bin`、通常はホームディレクトリの `go/bin`）を PATH に追加してください。
-Go モジュールは `cli/` にあるため、上記の版は `cli/v0.1.0` タグに対応します。
+特定の版に固定する場合は `@latest` を `@vX.Y.Z` に置き換えます。
+Go モジュールは `cli/` にあるため、製品版 `vX.Y.Z` は `cli/vX.Y.Z` タグに対応します。
 CLI を入れても、DBeaver とプラグインは別途必要です。
 
 DBeaver を起動し、ワークスペースを指定して SQL を標準入力へ渡します。
