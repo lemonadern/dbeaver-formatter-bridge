@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -424,7 +425,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	if rel == nil {
 		return fmt.Errorf("release disappeared before upload")
 	}
-	if !equalHashes(check.Files, r.Files) || check.RunID != r.RunID {
+	if !reflect.DeepEqual(*check, r) {
 		return fmt.Errorf("release provenance changed before upload")
 	}
 	if !rel.Draft {
@@ -453,7 +454,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	if err != nil {
 		return err
 	}
-	if rel == nil || !equalHashes(check.Files, r.Files) || check.RunID != r.RunID {
+	if rel == nil || !reflect.DeepEqual(*check, r) {
 		return fmt.Errorf("release provenance changed after upload")
 	}
 	if err = e.verifyRemote(rel, *check, true); err != nil {
@@ -468,7 +469,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	if err != nil {
 		return err
 	}
-	if final == nil || final.Draft || !equalHashes(record.Files, r.Files) {
+	if final == nil || final.Draft || !reflect.DeepEqual(*record, r) {
 		return fmt.Errorf("release was not published with the expected provenance")
 	}
 	return e.verifyRemote(final, *record, true)

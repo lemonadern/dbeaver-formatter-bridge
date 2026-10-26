@@ -546,3 +546,48 @@ func TestResumeUsesTheOriginalValidatedAttemptCohort(t *testing.T) {
 		t.Fatal("original cohort did not resume")
 	}
 }
+
+func TestPublicationRejectsChangedArtifactProvenanceEvenWhenFileHashesMatch(t *testing.T) {
+	for _, change := range []string{"artifact-id", "producer-attempt", "record-attempt"} {
+		t.Run(change, func(t *testing.T) {
+			f := fake(t)
+			f.existing(true, 1)
+			f.currentAttempt = 2
+			initial := f.provenance()
+			initial.Attempt = 2
+			originalBody, err := notes("owner/repo", initial)
+			if err != nil {
+				t.Fatal(err)
+			}
+			f.rel.Body = originalBody
+			f.collectHook = func() {
+				current, err := parseRecord(f.rel.Body, testVersion, testSHA)
+				if err != nil {
+					t.Fatal(err)
+				}
+				switch change {
+				case "artifact-id":
+					ref := current.Artifacts["cli"]
+					ref.ID += 1000
+					current.Artifacts["cli"] = ref
+				case "producer-attempt":
+					ref := current.Artifacts["cli"]
+					ref.Attempt = 2
+					ref.Name = "cli-distributions-23-2"
+					current.Artifacts["cli"] = ref
+				case "record-attempt":
+					current.Attempt = 1
+				}
+				body, err := notes("owner/repo", current)
+				if err != nil {
+					t.Fatal(err)
+				}
+				f.rel.Body = body
+			}
+			if err := f.engine().publish("", 0, 0, nil, false); err == nil {
+				t.Fatal("accepted modified source provenance")
+			}
+			noWrites(t, f)
+		})
+	}
+}
