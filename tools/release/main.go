@@ -15,7 +15,9 @@ func main() {
 	var err error
 	if root == "" || len(args) == 0 {
 		err = fmt.Errorf("usage: go run ./scripts/release.go prepare VERSION | check | tag VERSION | preflight ... | collect ... | publish ...")
-	} else {
+	} else if err = os.Chdir(root); err == nil {
+		// The wrapper compiles from this Go module, but command paths and gh
+		// repository discovery belong to the user's repository root.
 		switch args[0] {
 		case "prepare", "tag":
 			if len(args) != 2 {
