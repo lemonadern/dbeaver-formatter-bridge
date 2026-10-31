@@ -73,13 +73,18 @@ public final class FixtureStartup implements IStartup {
     }
 
     private void test() throws Exception {
-        // The old published plugin can initialize EditorsUI on an RPC thread.
-        // Finish that initialization on the UI thread before either readiness
-        // probe sends a request, including the compatibility run of that plugin.
-        stage = "editor preference initialization";
-        ui(() -> EditorsUI.getPreferenceStore());
-        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".preferences-ready"), "ready\n", StandardCharsets.UTF_8);
-        pass("editor preferences initialized on UI thread");
+        // Only the old published plugin needs preference initialization here.
+        // For the new plugin, leave EditorsUI cold so the first default-indent
+        // RPC exercises the production UI-thread initialization path.
+        stage = "workbench UI readiness";
+        if (Boolean.getBoolean("bridge.fixture.legacy")) {
+            ui(() -> EditorsUI.getPreferenceStore());
+            pass("legacy editor preferences initialized on UI thread");
+        } else {
+            ui(() -> null);
+        }
+        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".ui-ready"), "ready\n", StandardCharsets.UTF_8);
+        pass("workbench UI ready for initial default-indent RPC");
         var workspace = DBWorkbench.getPlatform().getWorkspace().getAbsolutePath();
         Path registry = workspace.resolve(".metadata/dbeaver-instance.properties");
         for (int i = 0; i < 120; i++) {

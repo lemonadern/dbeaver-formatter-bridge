@@ -153,10 +153,11 @@ try {
             }
             throw 'DBeaver GUI exited before readiness'
         }
-        # Wait for UI-thread EditorsUI initialization before the CLI can cause
-        # the old published plugin to initialize it from an RPC worker thread.
-        if (-not (Test-Path -LiteralPath ($fixtureResult + '.preferences-ready'))) {
-            if (Test-Path -LiteralPath $fixtureResult) { throw 'Fixture failed before editor preferences were initialized' }
+        # Wait for a UI dispatch checkpoint. Only the legacy compatibility
+        # fixture warms EditorsUI; the current plugin must initialize it safely
+        # through its first default-indent RPC without fixture assistance.
+        if (-not (Test-Path -LiteralPath ($fixtureResult + '.ui-ready'))) {
+            if (Test-Path -LiteralPath $fixtureResult) { throw 'Fixture failed before workbench UI readiness' }
             Start-Sleep -Seconds 1
             continue
         }
