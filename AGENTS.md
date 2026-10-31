@@ -4,6 +4,7 @@
 
 For every user-facing change, update `releases/<component>/unreleased.md` in the same PR.
 The components are `plugin`, `cli`, and `vscode`; shared behavior or protocol changes may affect several components.
+During release preparation, a fix shipping in an already prepared version updates that versioned draft instead; keep the next-version unreleased template empty so the fix is not announced twice.
 Describe observable behavior, installation changes, compatibility requirements and known limitations.
 Pure test, internal refactoring, CI and documentation changes do not require a user-facing entry unless they change distribution or installation behavior.
 Review release-note coverage explicitly before reporting the work complete; automated checks can reject missing drafts but cannot judge whether their content covers every change.
