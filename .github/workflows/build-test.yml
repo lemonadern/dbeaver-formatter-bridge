@@ -37,6 +37,7 @@ jobs:
         run: |
           go -C tools/release test -race -timeout 180s ./...
           go test ./scripts/ci/verify-p2-url.go ./scripts/ci/verify-p2-url_test.go
+          go test ./scripts/ci/restore-release-tag_test.go
       - name: Verify generated version definitions
         id: version
         run: |
