@@ -16,7 +16,7 @@ import (
 func main() {
 	root, err := os.Getwd()
 	if err == nil {
-		_, err = os.Stat(filepath.Join(root, "VERSION"))
+		_, err = os.Stat(filepath.Join(root, "tools", "release", "go.mod"))
 	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "run this tool from the repository root")

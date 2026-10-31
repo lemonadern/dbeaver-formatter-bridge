@@ -20,7 +20,7 @@ import (
 )
 
 func main() {
-	data, err := os.ReadFile("VERSION")
+	data, err := os.ReadFile("extensions/vscode/VERSION")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -133,7 +133,7 @@ func verify(name string, writeChecksum bool) error {
 }
 
 func expectedVersion() string {
-	data, err := os.ReadFile("VERSION")
+	data, err := os.ReadFile("extensions/vscode/VERSION")
 	if err != nil {
 		return ""
 	}

@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ['v*']
+    tags: ['plugin/v*', 'cli/v*', 'vscode/v*']
 
 # Preserve pending release runs as well as the running one.
 concurrency:
@@ -16,11 +16,13 @@ permissions:
 
 jobs:
   preflight:
-    name: Inspect release and matching tags
+    name: Inspect component release and tag
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       mode: ${{ steps.inspect.outputs.mode }}
+      component: ${{ steps.inspect.outputs.component }}
+      version: ${{ steps.inspect.outputs.version }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
@@ -43,7 +45,7 @@ jobs:
   module-smoke:
     name: Go install / Tagged module
     needs: preflight
-    if: needs.preflight.outputs.mode != 'done'
+    if: needs.preflight.outputs.component == 'cli' && needs.preflight.outputs.mode != 'done'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -53,7 +55,7 @@ jobs:
           cache: false
       - name: Install the public tagged module in an isolated cache
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: v${{ needs.preflight.outputs.version }}
           GOPRIVATE: ''
           GONOPROXY: ''
           GONOSUMDB: ''
@@ -84,8 +86,9 @@ jobs:
     name: Publish verified release assets
     needs: [preflight, build-test, module-smoke]
     if: >-
-      always() && needs.preflight.result == 'success' && needs.module-smoke.result == 'success' &&
-      (needs.preflight.outputs.mode == 'resume' ||
+      always() && needs.preflight.result == 'success' &&
+      (needs.module-smoke.result == 'success' || needs.module-smoke.result == 'skipped') &&
+      (needs.preflight.outputs.mode == 'done' || needs.preflight.outputs.mode == 'resume' ||
       (needs.preflight.outputs.mode == 'new' && needs.build-test.result == 'success'))
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -107,25 +110,24 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: go run ./scripts/release.go preflight --tag "$RELEASE_TAG" --output "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: steps.current.outputs.mode == 'new'
+        if: steps.current.outputs.mode == 'new' && needs.preflight.outputs.component == 'cli'
         with:
           artifact-ids: ${{ needs.build-test.outputs.cli_id }}
           merge-multiple: true
           path: build/release-input/cli
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: steps.current.outputs.mode == 'new'
+        if: steps.current.outputs.mode == 'new' && needs.preflight.outputs.component == 'plugin'
         with:
           artifact-ids: ${{ needs.build-test.outputs.plugin_id }}
           merge-multiple: true
           path: build/release-input/plugin
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        if: steps.current.outputs.mode == 'new'
+        if: steps.current.outputs.mode == 'new' && needs.preflight.outputs.component == 'vscode'
         with:
           artifact-ids: ${{ needs.build-test.outputs.vscode_id }}
           merge-multiple: true
           path: build/release-input/vscode
       - name: Verify, attach, round-trip and publish
-        if: steps.current.outputs.mode != 'done'
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
@@ -136,3 +138,50 @@ jobs:
           go run ./scripts/release.go publish --tag "$RELEASE_TAG"
           --artifacts build/release-input --run-id "$GITHUB_RUN_ID" --attempt "$GITHUB_RUN_ATTEMPT"
           --cli-artifact "$CLI_ARTIFACT" --plugin-artifact "$PLUGIN_ARTIFACT" --vscode-artifact "$VSCODE_ARTIFACT"
+
+  pages:
+    name: Publish plugin update index
+    needs: [preflight, publish]
+    if: >-
+      always() && needs.preflight.result == 'success' && needs.publish.result == 'success' &&
+      needs.preflight.outputs.component == 'plugin'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    concurrency:
+      group: plugin-pages-publication
+      cancel-in-progress: false
+      queue: max
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: '1.27.2'
+          cache: false
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - name: Rebuild index from verified published plugin releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: go run ./scripts/release.go pages-index --repo "$GITHUB_REPOSITORY" --out build/pages/updates --proof build/pages-proof.json
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: build/pages
+      - id: deploy
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+      - name: Verify the public index and referenced release assets
+        env:
+          PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          for attempt in 1 2 3; do
+            if go run ./scripts/ci/verify-p2-url.go --url "${PAGE_URL%/}/updates/"; then exit 0; fi
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 20
+          done

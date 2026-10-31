@@ -5,7 +5,7 @@
 同じ PR が更新された場合は、その PR の古い実行を自動キャンセルします。
 ビルドとテストの定義は [build-test.yml](../.github/workflows/build-test.yml) にまとめ、通常 CI とリリースで共有します。
 対象 OS とツールの版はこの定義を参照してください。
-最初に `VERSION` と生成済み定義の一致、リリース用ツールのテストを確認します。
+最初に対象別 `VERSION` と生成済み定義の一致、リリース用ツールのテストを確認します。
 
 ## テスト
 
@@ -24,6 +24,13 @@ VSIX のジョブでは共通の VSIX を一度作成し、収録ファイルと
 Windows の実 DBeaver 試験では、既存の SQL タブの試験完了後にインストール済み拡張から `activeEditor` と `global` を検証します。
 接続 ID モードの成功試験は代替 RPC によるもので、実 DB や JDBC 接続の検証とは区別します。
 
+## 独立版と更新サイトの検証
+
+`releases/compatibility.json` で公開済みの最小対応版とダウンロード URL、SHA-256 を固定しています。
+Windows では新プラグインと旧 CLI、新 CLI と旧プラグイン、新 CLI と旧 VSIX、新 VSIX と旧 CLI の組合せを検証します。
+p2 の試験では隔離した DBeaver のコピーを使い、実配布の旧版を導入し、一時 HTTP サーバーで提供する composite と平坦な p2 から試験用新版へ更新します。
+本番 URL とローカル試験用 URL の差は別途検証し、本番 Release は作成しません。
+
 ## 配布物を取得する
 
 GitHub の **Actions → CI** で成功した実行を開き、**Artifacts** からダウンロードします。
@@ -36,7 +43,7 @@ GitHub の **Actions → CI** で成功した実行を開き、**Artifacts** か
 
 artifact 名に生成 attempt を含め、取得には生成ジョブが返した artifact ID を使います。
 失敗したジョブだけを再実行しても、先に成功した別 attempt のファイルを取り違えないためです。
-末尾の集約ジョブは配布9ファイルをリモートへ公開せず検証し、`release-assets-<run ID>-<attempt>` に保存します。
+末尾の集約ジョブは各対象の配布物をリモートへ公開せず検証し、`release-assets-<run ID>-<attempt>` に保存します。
 
 CLI の ZIP には実行ファイル、ライセンス文書、ビルド情報を含めます。
 プラグインの ZIP には、プラグイン本体と導入用のメタデータを含めます。
@@ -63,11 +70,13 @@ Go や依存を更新する際は、[ライセンス一覧](../licenses/README.m
 
 ## リリースの発動条件
 
-[Release](../.github/workflows/release.yml) は製品用 `vX.Y.Z` タグの push を入口にします。
-CLI 用の `cli/vX.Y.Z` タグ、通常の PR、main の push では Release の公開処理を実行しません。
-二つのタグの対応と既存 Release を確認し、新規の場合だけ共通のビルドとテストを呼びます。
-公開前には、一時キャッシュへの `go install` も確認します。
-ビルドは読み取り権限、公開ジョブは `contents: write` と来歴確認用の `actions: read` を使用します。
+[Release](../.github/workflows/release.yml) は `plugin/vX.Y.Z`、`cli/vX.Y.Z`、`vscode/vX.Y.Z` タグの push を入口にします。
+通常の PR と main の push では公開処理を実行しません。
+対象のタグ、版定義、リリースノートと既存 Release を確認し、新規の場合だけ共通のビルドと試験を呼びます。
+CLI の公開前には、一時キャッシュへの `go install` も確認します。
+ビルドは読み取り権限、Release 公開は `contents: write` と来歴確認用の `actions: read` を使用します。
+plugin の公開後に限り、Pages の composite 索引を生成してデプロイします。
+Pages の権限はデプロイジョブだけに付け、公開 URL と参照先のハッシュまで確認します。
 
 リリース同士は `queue: max` と `cancel-in-progress: false` で待機させ、通常 CI とは別グループで管理します。
 PR ではリリース関連ファイルが変わる場合にだけ [待機確認](../.github/workflows/release-queue-probe.yml) の三ジョブも実行します。

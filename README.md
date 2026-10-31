@@ -71,7 +71,7 @@ go test -race ./...
 go vet ./...
 ```
 
-DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-<VERSION>.zip` に生成されます。
+DBeaver に導入するプラグイン ZIP は `plugin/repository/target/formatter-bridge-update-site-<plugin version>.zip` に生成されます。
 CLI の OS 別配布 ZIP とチェックサムは `dist/` に生成されます。
 
 [検証手順](docs/testing.md)、[通信仕様](docs/protocol.md)、[リポジトリ構成](docs/development.md) を参照してください。

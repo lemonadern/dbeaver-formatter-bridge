@@ -18,7 +18,7 @@ import (
 )
 
 func main() {
-	data, err := os.ReadFile("VERSION")
+	data, err := os.ReadFile("plugin/VERSION")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

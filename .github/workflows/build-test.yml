@@ -34,12 +34,14 @@ jobs:
           go-version: '1.27.2'
           cache: false
       - name: Test release commands and publication state machine
-        run: go -C tools/release test -race -timeout 120s ./...
+        run: |
+          go -C tools/release test -race -timeout 180s ./...
+          go test ./scripts/ci/verify-p2-url.go ./scripts/ci/verify-p2-url_test.go
       - name: Verify generated version definitions
         id: version
         run: |
           go run ./scripts/release.go check
-          echo "value=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+          echo "value=$(cat plugin/VERSION)" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   vscode-package:
@@ -184,7 +186,7 @@ jobs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
     name: Real DBeaver CE 26.2.2 / Windows x64
     runs-on: windows-2025
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
@@ -219,6 +221,9 @@ jobs:
       - name: Build, install and exercise real DBeaver
         shell: pwsh
         run: ./scripts/ci/windows-dbeaver.ps1
+      - name: Test current CLI and VSIX against the published minimum plugin
+        shell: pwsh
+        run: ./scripts/ci/windows-dbeaver.ps1 -UseLegacyPlugin
       - name: Upload licensed plugin update site
         id: upload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -262,17 +267,23 @@ jobs:
           artifact-ids: ${{ needs.vscode-package.outputs.artifact-id }}
           merge-multiple: true
           path: build/release-input/vscode
-      - name: Validate nine release assets without remote writes
+      - name: Validate component release assets without remote writes
         env:
-          RELEASE_VERSION: ${{ needs.metadata.outputs.version }}
           RELEASE_SHA: ${{ needs.metadata.outputs.sha }}
-        run: >-
-          go run ./scripts/release.go collect
-          --version "$RELEASE_VERSION" --sha "$RELEASE_SHA"
-          --artifacts build/release-input --out build/release-assets
+        run: |
+          for component in plugin cli vscode; do
+            case "$component" in
+              plugin) version=$(cat plugin/VERSION) ;;
+              cli) version=$(cat cli/VERSION) ;;
+              vscode) version=$(cat extensions/vscode/VERSION) ;;
+            esac
+            go run ./scripts/release.go collect --component "$component" --version "$version" \
+              --sha "$RELEASE_SHA" --repo "$GITHUB_REPOSITORY" \
+              --artifacts build/release-input --out "build/release-assets/$component"
+          done
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-assets-${{ github.run_id }}-${{ github.run_attempt }}
-          path: build/release-assets/*
+          path: build/release-assets/**
           if-no-files-found: error
           retention-days: 7

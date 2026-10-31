@@ -37,7 +37,8 @@ go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format
 
 インストール先の `GOBIN`（未指定なら `GOPATH/bin`、通常はホームディレクトリの `go/bin`）を PATH に追加してください。
 特定の版に固定する場合は `@latest` を `@vX.Y.Z` に置き換えます。
-Go モジュールは `cli/` にあるため、製品版 `vX.Y.Z` は `cli/vX.Y.Z` タグに対応します。
+Go モジュールは `cli/` にあるため、`@vX.Y.Z` は `cli/vX.Y.Z` タグに対応します。
+プラグインと VS Code 拡張の版は独立しており、対応範囲は各対象の Release を確認してください。
 CLI を入れても、DBeaver とプラグインは別途必要です。
 
 DBeaver を起動し、ワークスペースを指定して SQL を標準入力へ渡します。

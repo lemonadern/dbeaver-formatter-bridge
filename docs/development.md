@@ -20,8 +20,8 @@ DBeaver プラグインは、接続先の方言と設定を選び、DBeaver の�
 | `tests/fixtures/` | 検証用 SQL |
 | `licenses/` | CLI に含まれる第三者ソフトウェアのライセンス表示 |
 | `extensions/vscode/` | PATH 上の CLI を呼ぶ VS Code 拡張と VSIX のビルド、導入テスト |
-| `tools/release/` | 版更新、二つのタグ、配布物検証、Release 公開の Go モジュール |
-| `VERSION` | 製品バージョンの管理元 |
+| `tools/release/` | 対象別の版更新とタグ、配布物検証、Release 公開の Go モジュール |
+| `plugin/VERSION`、`cli/VERSION`、`extensions/vscode/VERSION` | 対象別バージョンの管理元 |
 
 ビルドの実行手順は [README](../README.md#開発)、ライブラリの準備方法は [プラグインのビルド依存](../plugin/target-platform/README.md) を参照してください。
 

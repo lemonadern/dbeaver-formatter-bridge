@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Runs only against a disposable CI extraction; never uses an installed DBeaver.
 [CmdletBinding()]
-param()
+param([switch] $UseLegacyPlugin)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
@@ -11,9 +11,10 @@ $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = $OutputEncoding
 
 $root = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$version = ([IO.File]::ReadAllText((Join-Path $root 'VERSION'))).Trim()
+$version = ([IO.File]::ReadAllText((Join-Path $root 'plugin/VERSION'))).Trim()
 if ($version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') { throw 'Invalid VERSION' }
 Set-Location $root
+. (Join-Path $PSScriptRoot 'get-compatibility.ps1')
 $build = Join-Path $root 'build'
 New-Item -ItemType Directory -Force $build | Out-Null
 $report = Join-Path $build 'ci-report.txt'
@@ -74,6 +75,7 @@ try {
     & go run ./scripts/prepare-target.go -dbeaver-home $dbeaverHome -java (Join-Path $env:JAVA_HOME 'bin/java.exe')
     & go run ./scripts/build-plugin.go
     & go run ./scripts/ci/verify-site.go
+    if (-not $UseLegacyPlugin) { & ./scripts/ci/p2-site.ps1 -DBeaverHome $dbeaverHome }
     $cli = Join-Path $temp 'CLI 配置/dbeaver-format.exe'
     New-Item -ItemType Directory (Split-Path $cli) | Out-Null
     Push-Location cli
@@ -84,6 +86,11 @@ try {
     $launcher = @(Get-ChildItem (Join-Path $dbeaverHome 'plugins') -Filter 'org.eclipse.equinox.launcher_*.jar')
     if ($launcher.Count -ne 1) { throw 'Expected exactly one Equinox launcher' }
     $site = (Resolve-Path ("plugin/repository/target/formatter-bridge-update-site-" + $version + ".zip")).Path
+    if ($UseLegacyPlugin) {
+        $site = Join-Path $temp 'legacy-plugin.zip'
+        $legacyVersion = Get-CompatibilityAsset $root 'plugin' $site
+        Report ('Compatibility: current CLI and VSIX against published plugin ' + $legacyVersion)
+    }
     $repository = 'jar:' + ([Uri]::new($site)).AbsoluteUri + '!/'
     $install = Start-TestProcess -Arguments @('-jar', $launcher[0].FullName,
         '-nosplash', '-application', 'org.eclipse.equinox.p2.director',
@@ -184,6 +191,31 @@ try {
     $env:DBEAVER_BRIDGE_WORKSPACE = $workspace
     & npm --prefix extensions/vscode run test:vsix
     Report 'PASS: installed VSIX through PATH CLI to real DBeaver active-editor and global formatting'
+
+    if (-not $UseLegacyPlugin) {
+        $stage = 'published minimum CLI compatibility'
+        $legacyArchive = Join-Path $temp 'legacy-cli.zip'
+        $legacyCLIVersion = Get-CompatibilityAsset $root 'cli' $legacyArchive
+        $legacyDirectory = Join-Path $temp 'legacy-cli'
+        Expand-Archive -LiteralPath $legacyArchive -DestinationPath $legacyDirectory
+        $legacyCLI = Join-Path $legacyDirectory 'dbeaver-format.exe'
+        & go run ./scripts/test-bridge.go --cli $legacyCLI --workspace $workspace
+        $env:DBEAVER_BRIDGE_CLI = $legacyCLI
+        & npm --prefix extensions/vscode run test:vsix
+        Report ('PASS: current plugin and VSIX with published minimum CLI ' + $legacyCLIVersion)
+        $env:DBEAVER_BRIDGE_CLI = $cli
+
+        $stage = 'published minimum VSIX compatibility'
+        $legacyVSIX = Join-Path $temp 'legacy.vsix'
+        $legacyVSIXVersion = Get-CompatibilityAsset $root 'vscode' $legacyVSIX
+        $env:BRIDGE_TEST_VSIX = $legacyVSIX
+        $env:BRIDGE_TEST_EXPECTED_VERSION = $legacyVSIXVersion
+        try { & npm --prefix extensions/vscode run test:vsix } finally {
+            Remove-Item Env:BRIDGE_TEST_VSIX -ErrorAction SilentlyContinue
+            Remove-Item Env:BRIDGE_TEST_EXPECTED_VERSION -ErrorAction SilentlyContinue
+        }
+        Report ('PASS: current CLI and plugin with published minimum VSIX ' + $legacyVSIXVersion)
+    }
 
     $stage = 'PowerShell UTF-8 stdin'
     $sql = "select '日本語😀' as greeting,'C:\temp\new.sql' as path from example where id=1;"

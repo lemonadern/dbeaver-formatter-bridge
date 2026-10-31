@@ -54,7 +54,7 @@ func packageCLI(root, input, out string) error {
 	if !filepath.IsAbs(out) {
 		out = filepath.Join(root, out)
 	}
-	versionData, err := os.ReadFile(filepath.Join(root, "VERSION"))
+	versionData, err := os.ReadFile(filepath.Join(root, "cli", "VERSION"))
 	if err != nil {
 		return err
 	}

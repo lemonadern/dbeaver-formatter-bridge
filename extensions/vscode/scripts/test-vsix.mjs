@@ -91,7 +91,7 @@ try {
         ...env,
         BRIDGE_TEST_EXTENSIONS: extensions,
         BRIDGE_TEST_CLI: cli,
-        BRIDGE_TEST_VERSION: metadata.version,
+        BRIDGE_TEST_VERSION: process.env.BRIDGE_TEST_EXPECTED_VERSION || metadata.version,
         BRIDGE_TEST_WORKSPACE: realWorkspace || path.join(temp, 'DBeaver ワークスペース'),
         BRIDGE_TEST_REAL: realWorkspace ? '1' : '',
         BRIDGE_TEST_RESTRICTED: restricted ? '1' : ''
