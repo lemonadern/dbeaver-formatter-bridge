@@ -52,6 +52,8 @@ go run ./scripts/release.go tag plugin 0.2.0
 
 `tag` は main が最新の origin/main と一致すること、作業ツリーが clean であること、対象の版定義と原稿、既存タグより大きい版であることを確認します。
 その後、対象の annotated tag 一つを作成して push し、Release workflow を開始します。
+GitHub の checkout がローカルのタグ参照を commit に置き換える場合があるため、workflow は origin から同じタグを再取得し、annotated object と HEAD の一致を検査します。
+この復元はランナー内の参照だけを変更し、リモートの公開済みタグを付け替えません。
 CLI は `cli/vX.Y.Z` が Go モジュール用のタグも兼ねるため、ルートの `vX.Y.Z` を別に作りません。
 公開済みの旧 `v0.1.0` と `cli/v0.1.0` は維持し、plugin と vscode の最初の独立版も `0.1.0` より大きくします。
 Marketplace、プレリリース、署名はこの手順の対象外です。
