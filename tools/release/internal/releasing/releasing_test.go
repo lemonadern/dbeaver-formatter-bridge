@@ -21,7 +21,7 @@ const testSHA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 const testVersion = "0.2.0"
 const testRun int64 = 23
 
-var jobNames = []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
+var jobNames = []string{"CLI / ubuntu-24.04", "CLI / macos-15", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-15", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
 
 func makeZip(t *testing.T, files map[string][]byte) []byte {
 	t.Helper()
@@ -620,7 +620,7 @@ func TestPublicationBindsTestAttemptsToTheRecordedProducers(t *testing.T) {
 		"real-dbeaver-tested-old-vsix": func(f *fakeGH) {
 			setProducerAttempt(f, "vscode", 2)
 			setJobAttempt(f, "VSIX / Package", 2)
-			for _, system := range []string{"ubuntu-24.04", "macos-14", "windows-2025"} {
+			for _, system := range []string{"ubuntu-24.04", "macos-15", "windows-2025"} {
 				setJobAttempt(f, "VSIX / "+system, 2)
 			}
 		},
@@ -647,7 +647,7 @@ func TestPublicationAcceptsMixedProducerAttemptsAfterFailedJobReruns(t *testing.
 	setJobAttempt(f, "VSIX / Package", 2)
 	setProducerAttempt(f, "plugin", 3)
 	setJobAttempt(f, "Real DBeaver CE 26.2.2 / Windows x64", 3)
-	for _, system := range []string{"ubuntu-24.04", "macos-14", "windows-2025"} {
+	for _, system := range []string{"ubuntu-24.04", "macos-15", "windows-2025"} {
 		setJobAttempt(f, "VSIX / "+system, 2)
 	}
 	setJobAttempt(f, "Release assets / Validate assembly", 3)

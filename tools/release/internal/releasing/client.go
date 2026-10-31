@@ -203,7 +203,7 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int, artifacts map
 			return fmt.Errorf("job listing exceeded pagination limit")
 		}
 	}
-	required := []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
+	required := []string{"CLI / ubuntu-24.04", "CLI / macos-15", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-15", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
 	component := ""
 	if strings.Contains(tag, "/v") {
 		component, _ = tagComponent(tag)
@@ -247,7 +247,7 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int, artifacts map
 			maxProducer = source.Attempt
 		}
 	}
-	for _, consumer := range []string{"VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64"} {
+	for _, consumer := range []string{"VSIX / ubuntu-24.04", "VSIX / macos-15", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64"} {
 		if selected[consumer].Attempt < artifacts["vscode"].Attempt {
 			return fmt.Errorf("VSIX test predates the recorded VSIX producer: %s", consumer)
 		}
