@@ -28,6 +28,7 @@ const markerStart = "<!-- dbeaver-release-provenance\n"
 const markerEnd = "\n-->"
 
 type record struct {
+	Component string                 `json:"component,omitempty"`
 	Schema    int                    `json:"schema"`
 	Version   string                 `json:"version"`
 	Commit    string                 `json:"commit"`
@@ -38,11 +39,16 @@ type record struct {
 }
 
 func (r record) validate(version, sha string) error {
-	if r.Schema != 1 || r.Version != version || r.Commit != sha || r.RunID < 1 || r.Attempt < 1 {
+	if (r.Schema != 1 && r.Schema != 2) || (r.Schema == 1 && r.Component != "") || (r.Schema == 2 && !validComponent(r.Component)) || r.Version != version || r.Commit != sha || !shaRE.MatchString(r.Commit) || r.RunID < 1 || r.Attempt < 1 {
 		return fmt.Errorf("release provenance does not match version and commit")
 	}
 	expected := expectedFiles(version)
-	if len(r.Files) != len(expected) || len(r.Artifacts) != 3 {
+	prefixes := artifactPrefixes
+	if r.Component != "" {
+		expected = componentFiles(r.Component, version)
+		prefixes = componentPrefixes(r.Component)
+	}
+	if len(r.Files) != len(expected) || len(r.Artifacts) != len(prefixes) {
 		return fmt.Errorf("release provenance inventory mismatch")
 	}
 	for name, hash := range r.Files {
@@ -51,7 +57,7 @@ func (r record) validate(version, sha string) error {
 		}
 	}
 	ids := map[int64]bool{}
-	for component, prefix := range artifactPrefixes {
+	for component, prefix := range prefixes {
 		a, ok := r.Artifacts[component]
 		if !ok || a.ID < 1 || ids[a.ID] || a.RunID != r.RunID || a.Attempt < 1 || a.Attempt > r.Attempt || a.Name != prefix+"-"+strconv.FormatInt(r.RunID, 10)+"-"+strconv.Itoa(a.Attempt) || !strings.HasPrefix(a.Digest, "sha256:") || !hashRE.MatchString(strings.TrimPrefix(a.Digest, "sha256:")) {
 			return fmt.Errorf("invalid source artifact provenance")
@@ -139,6 +145,7 @@ func resolve(root, tag string) (string, string, error) {
 
 type engine struct {
 	root, version, sha, tag string
+	component               string
 	client                  *client
 	collector               func(string, string) (map[string]string, error)
 }
@@ -148,7 +155,11 @@ func (e *engine) verifyTags() error {
 		Type string `json:"type"`
 		SHA  string `json:"sha"`
 	}
-	for _, tag := range []string{e.tag, "cli/" + e.tag} {
+	tags := []string{e.tag, "cli/" + e.tag}
+	if e.component != "" {
+		tags = []string{e.tag}
+	}
+	for _, tag := range tags {
 		var ref struct {
 			Object object `json:"object"`
 		}
@@ -186,7 +197,13 @@ func (e *engine) inspect() (*release, *record, error) {
 	if err != nil || rel == nil {
 		return rel, nil, err
 	}
+	if e.component != "" && rel.Prerelease {
+		return nil, nil, fmt.Errorf("stable component release must not be marked prerelease")
+	}
 	r, err := parseRecord(rel.Body, e.version, e.sha)
+	if err == nil && r.Component != e.component {
+		err = fmt.Errorf("release component does not match tag")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -291,10 +308,13 @@ func pathBase(name string) string {
 	return strings.TrimPrefix(filepath.ToSlash(filepath.Base(filepath.FromSlash(name))), "./")
 }
 func compareInputs(supplied, downloaded string) error {
+	return compareComponentInputs(supplied, downloaded, "")
+}
+func compareComponentInputs(supplied, downloaded, selected string) error {
 	if supplied == "" {
 		return nil
 	}
-	for component := range artifactPrefixes {
+	for component := range componentPrefixes(selected) {
 		left, err := os.ReadDir(filepath.Join(supplied, component))
 		if err != nil {
 			return err
@@ -325,6 +345,9 @@ func compareInputs(supplied, downloaded string) error {
 func (e *engine) stage(input, out string) (map[string]string, error) {
 	if e.collector != nil {
 		return e.collector(input, out)
+	}
+	if e.component != "" {
+		return collectComponent(e.root, e.component, e.version, e.sha, e.client.repo, input, out)
 	}
 	return collect(e.root, e.version, e.sha, input, out)
 }
@@ -358,8 +381,11 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 		if runID < 1 || attempt < 1 {
 			return fmt.Errorf("positive publication run and attempt required")
 		}
-		r = record{Schema: 1, Version: e.version, Commit: e.sha, RunID: runID, Attempt: attempt, Artifacts: map[string]artifactRef{}}
-		for component := range artifactPrefixes {
+		r = record{Schema: 1, Component: e.component, Version: e.version, Commit: e.sha, RunID: runID, Attempt: attempt, Artifacts: map[string]artifactRef{}}
+		if e.component != "" {
+			r.Schema = 2
+		}
+		for component := range componentPrefixes(e.component) {
 			ref, err := e.client.artifact(ids[component], runID, e.sha, component)
 			if err != nil {
 				return err
@@ -384,7 +410,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	}
 	// On resume, original recorded IDs override current attempt's supplied inputs.
 	if existing == nil {
-		if err = compareInputs(input, downloaded); err != nil {
+		if err = compareComponentInputs(input, downloaded, e.component); err != nil {
 			return err
 		}
 	}
@@ -406,6 +432,9 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	}
 	if rel == nil {
 		body, err := notes(e.client.repo, r)
+		if e.component != "" {
+			body, err = componentNotes(e.root, e.client.repo, r)
+		}
 		if err != nil {
 			return err
 		}
@@ -413,7 +442,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 		if err = os.WriteFile(notesFile, []byte(body), 0600); err != nil {
 			return err
 		}
-		if _, err = e.client.run([]string{"release", "create", e.tag, "--repo", e.client.repo, "--draft", "--verify-tag", "--target", e.sha, "--title", e.tag, "--notes-file", notesFile}); err != nil {
+		if _, err = e.client.run([]string{"release", "create", e.tag, "--repo", e.client.repo, "--draft", "--verify-tag", "--target", e.sha, "--title", releaseTitle(e.component, e.version), "--notes-file", notesFile}); err != nil {
 			return err
 		}
 	}
@@ -480,7 +509,8 @@ func run(root string, args []string, execute runner) error {
 		return fmt.Errorf("expected preflight, collect or publish")
 	}
 	fs := flag.NewFlagSet(args[0], flag.ContinueOnError)
-	tag := fs.String("tag", "", "product tag, e.g. v0.2.0")
+	tag := fs.String("tag", "", "component tag, e.g. plugin/v0.2.0")
+	component := fs.String("component", "", "plugin, cli or vscode")
 	repo := fs.String("repo", os.Getenv("GITHUB_REPOSITORY"), "owner/repository")
 	output := fs.String("output", "", "GitHub output file")
 	input := fs.String("artifacts", "", "cli/plugin/vscode input directories")
@@ -499,7 +529,37 @@ func run(root string, args []string, execute runner) error {
 	if fs.NArg() != 0 {
 		return fmt.Errorf("unexpected positional arguments")
 	}
+	if args[0] == "pages-index" {
+		if !repoRE.MatchString(*repo) || *out == "" {
+			return fmt.Errorf("pages-index requires --repo and --out")
+		}
+		return pagesIndex(newClient(*repo, execute), *out)
+	}
 	if args[0] == "collect" {
+		if *component != "" {
+			if err := versioning.ValidateComponent(*component, *version); err != nil {
+				return err
+			}
+			actual, err := versioning.CheckComponent(root, *component)
+			if err != nil {
+				return err
+			}
+			if actual != *version || !shaRE.MatchString(*sha) || *input == "" || *out == "" {
+				return fmt.Errorf("collect requires matching component version, commit, input and output")
+			}
+			if *repo == "" {
+				*repo = "lemonadern/dbeaver-formatter-bridge"
+			}
+			if !repoRE.MatchString(*repo) {
+				return fmt.Errorf("invalid repository")
+			}
+			hashes, err := collectComponent(root, *component, *version, *sha, *repo, *input, *out)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("PASS: staged %d verified %s release files\n", len(hashes), *component)
+			return nil
+		}
 		if err := versioning.Validate(*version); err != nil {
 			return err
 		}
@@ -520,7 +580,11 @@ func run(root string, args []string, execute runner) error {
 	if args[0] != "preflight" && args[0] != "publish" {
 		return fmt.Errorf("unknown release subcommand: %s", args[0])
 	}
-	v, commit, err := resolve(root, *tag)
+	selected, err := tagComponent(*tag)
+	if err != nil {
+		return err
+	}
+	v, commit, err := resolveComponent(root, selected, *tag)
 	if err != nil {
 		return err
 	}
@@ -534,13 +598,13 @@ func run(root string, args []string, execute runner) error {
 	if !repoRE.MatchString(*repo) || strings.Contains(*repo, "/..") {
 		return fmt.Errorf("invalid repository")
 	}
-	e := &engine{root: root, version: v, sha: commit, tag: *tag, client: newClient(*repo, execute)}
+	e := &engine{root: root, component: selected, version: v, sha: commit, tag: *tag, client: newClient(*repo, execute)}
 	if args[0] == "preflight" {
 		mode, err := e.preflight()
 		if err != nil {
 			return err
 		}
-		data := fmt.Sprintf("mode=%s\nversion=%s\nsha=%s\n", mode, v, commit)
+		data := fmt.Sprintf("mode=%s\ncomponent=%s\nversion=%s\nsha=%s\n", mode, selected, v, commit)
 		if *output != "" {
 			f, err := os.OpenFile(*output, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0600)
 			if err != nil {
@@ -566,7 +630,9 @@ func run(root string, args []string, execute runner) error {
 		return err
 	}
 	if rel == nil {
-		for component, value := range map[string]string{"cli": *cliID, "plugin": *pluginID, "vscode": *vscodeID} {
+		values := map[string]string{"cli": *cliID, "plugin": *pluginID, "vscode": *vscodeID}
+		for component := range componentPrefixes(selected) {
+			value := values[component]
 			id, err := strconv.ParseInt(value, 10, 64)
 			if err != nil || id < 1 {
 				return fmt.Errorf("positive %s artifact ID required", component)

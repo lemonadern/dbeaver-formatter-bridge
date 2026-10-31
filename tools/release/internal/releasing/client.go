@@ -77,11 +77,12 @@ type asset struct {
 	Size int64  `json:"size"`
 }
 type release struct {
-	ID     int64   `json:"id"`
-	Tag    string  `json:"tag_name"`
-	Draft  bool    `json:"draft"`
-	Body   string  `json:"body"`
-	Assets []asset `json:"assets"`
+	ID         int64   `json:"id"`
+	Tag        string  `json:"tag_name"`
+	Draft      bool    `json:"draft"`
+	Prerelease bool    `json:"prerelease"`
+	Body       string  `json:"body"`
+	Assets     []asset `json:"assets"`
 }
 
 func (c *client) findRelease(tag string) (*release, error) {
@@ -203,6 +204,19 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int, artifacts map
 		}
 	}
 	required := []string{"CLI / ubuntu-24.04", "CLI / macos-14", "CLI / windows-2025", "CLI / Package", "VSIX / Package", "VSIX / ubuntu-24.04", "VSIX / macos-14", "VSIX / windows-2025", "Real DBeaver CE 26.2.2 / Windows x64", "Go install / Tagged module", "Release assets / Validate assembly"}
+	component := ""
+	if strings.Contains(tag, "/v") {
+		component, _ = tagComponent(tag)
+	}
+	if component != "" && component != "cli" {
+		filtered := required[:0]
+		for _, name := range required {
+			if name != "Go install / Tagged module" {
+				filtered = append(filtered, name)
+			}
+		}
+		required = filtered
+	}
 	selected := map[string]job{}
 	for _, suffix := range required {
 		matches := 0
@@ -222,6 +236,9 @@ func (c *client) verifyRun(id int64, sha, tag string, attempt int, artifacts map
 	producerJobs := map[string]string{"cli": "CLI / Package", "plugin": "Real DBeaver CE 26.2.2 / Windows x64", "vscode": "VSIX / Package"}
 	maxProducer := 0
 	for component, name := range producerJobs {
+		if _, ok := artifacts[component]; !ok && len(artifacts) == 1 {
+			continue
+		}
 		source, ok := artifacts[component]
 		if !ok || source.Attempt < 1 || source.Attempt > attempt || selected[name].Attempt != source.Attempt {
 			return fmt.Errorf("artifact producer does not match validated job attempt: %s", component)
