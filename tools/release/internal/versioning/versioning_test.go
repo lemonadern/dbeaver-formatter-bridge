@@ -37,6 +37,11 @@ func rawFixture(t *testing.T) string {
 	}
 	for _, name := range definitionFiles {
 		data, err := os.ReadFile(filepath.Join(source, name))
+		// Legacy API tests keep a synthetic root VERSION; the real checkout now
+		// has independent component version files.
+		if name == "VERSION" {
+			data, err = []byte("0.1.0\n"), nil
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -486,6 +486,11 @@ func definitionFixture(t *testing.T) string {
 	}
 	for _, name := range []string{"VERSION", "plugin/pom.xml", "plugin/bundles/formatter-bridge/pom.xml", "plugin/features/formatter-bridge/pom.xml", "plugin/repository/pom.xml", "plugin/bundles/formatter-bridge/META-INF/MANIFEST.MF", "plugin/features/formatter-bridge/feature.xml", "extensions/vscode/package.json", "extensions/vscode/package-lock.json", "cli/internal/version/value.go"} {
 		data, err := os.ReadFile(filepath.Join(source, name))
+		// Legacy API tests keep a synthetic root VERSION; the real checkout now
+		// has independent component version files.
+		if name == "VERSION" {
+			data, err = []byte("0.1.0\n"), nil
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
