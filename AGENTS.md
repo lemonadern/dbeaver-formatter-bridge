@@ -23,4 +23,5 @@ Preserve the existing shared `v0.1.0` release and tags.
 Use `plugin/vX.Y.Z`, `cli/vX.Y.Z`, and `vscode/vX.Y.Z` for new component releases.
 The CLI tag also identifies the nested Go module; major 2 needs a Go module-path migration.
 Plugin online p2 metadata and offline ZIP metadata have different artifact locations; retain local paths in offline ZIPs.
+Preserve the slash in `plugin/vX.Y.Z` in p2 child URLs. Pre-encoding it as `%2F` makes Equinox encode it again; exercise the production-shaped path in the real p2 integration test.
 Publish only tested artifacts and verify their bytes after download; never replace published assets or force-update published tags.
