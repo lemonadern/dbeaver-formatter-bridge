@@ -47,7 +47,7 @@ func fixture(t *testing.T) []byte {
 	a := []byte(`<repository><mappings><rule output="${repoUrl}/plugins/${id}_${version}.jar"/><rule output="${repoUrl}/features/${id}_${version}.jar"/></mappings><artifacts>` + artifacts.String() + `</artifacts></repository>`)
 	files["artifacts.jar"] = zipBytes(t, map[string][]byte{"artifacts.xml": a})
 	files["artifacts.xml.xz"] = encodeXZ(a)
-	c := []byte(`<repository><units size="0"/></repository>`)
+	c := contentFixture("0.1.0")
 	files["content.jar"] = zipBytes(t, map[string][]byte{"content.xml": c})
 	files["content.xml.xz"] = encodeXZ(c)
 	files["p2.index"] = []byte("version=1\n")
@@ -186,5 +186,41 @@ func TestRejectUnsafeBases(t *testing.T) {
 		if _, err := Flatten(fixture(t), "0.1.0", base); err == nil {
 			t.Fatalf("accepted %q", base)
 		}
+	}
+}
+
+func contentFixture(version string) []byte {
+	self := func(id string) string {
+		return `<provides><provided namespace="org.eclipse.equinox.p2.iu" name="` + id + `" version="` + version + `"/></provides>`
+	}
+	return []byte(`<repository><units size="3"><unit id="` + pluginID + `" version="` + version + `">` + self(pluginID) + `<artifacts><artifact classifier="osgi.bundle" id="` + pluginID + `" version="` + version + `"/></artifacts></unit><unit id="` + pluginID + `.feature.feature.jar" version="` + version + `">` + self(pluginID+`.feature.feature.jar`) + `<artifacts><artifact classifier="org.eclipse.update.feature" id="` + pluginID + `.feature" version="` + version + `"/></artifacts></unit><unit id="` + pluginID + `.feature.feature.group" version="` + version + `">` + self(pluginID+`.feature.feature.group`) + `<requires><required namespace="org.eclipse.equinox.p2.iu" name="` + pluginID + `" range="[` + version + `,` + version + `]"/><required namespace="org.eclipse.equinox.p2.iu" name="` + pluginID + `.feature.feature.jar" range="[` + version + `,` + version + `]"/></requires></unit></units></repository>`)
+}
+func TestRejectMismatchedContent(t *testing.T) {
+	for _, name := range []string{"empty", "wrong-unit-version", "wrong-artifact-version", "wrong-artifact-id", "missing-group", "wrong-requirement", "duplicate-unit"} {
+		t.Run(name, func(t *testing.T) {
+			c := contentFixture("0.1.0")
+			switch name {
+			case "empty":
+				c = []byte(`<repository><units size="0"/></repository>`)
+			case "wrong-unit-version":
+				c = bytes.Replace(c, []byte(`version="0.1.0"`), []byte(`version="0.2.0"`), 1)
+			case "wrong-artifact-version":
+				c = bytes.Replace(c, []byte(`id="`+pluginID+`" version="0.1.0"/></artifacts>`), []byte(`id="`+pluginID+`" version="0.2.0"/></artifacts>`), 1)
+			case "wrong-artifact-id":
+				c = bytes.Replace(c, []byte(`classifier="osgi.bundle" id="`+pluginID+`"`), []byte(`classifier="osgi.bundle" id="other.bundle"`), 1)
+			case "missing-group":
+				c = bytes.Replace(c, []byte(`id="`+pluginID+`.feature.feature.group"`), []byte(`id="other.group"`), 1)
+			case "wrong-requirement":
+				c = bytes.Replace(c, []byte(`[0.1.0,0.1.0]`), []byte(`[0.0.0,0.0.0]`), 1)
+			case "duplicate-unit":
+				c = bytes.Replace(c, []byte(`</units>`), []byte(`<unit id="`+pluginID+`" version="0.1.0"/></units>`), 1)
+			}
+			files, _ := readZIP(fixture(t))
+			files["content.jar"] = zipBytes(t, map[string][]byte{"content.xml": c})
+			files["content.xml.xz"] = encodeXZ(c)
+			if _, err := Flatten(zipBytes(t, files), "0.1.0", "https://example.org/release/"); err == nil {
+				t.Fatal("accepted mismatched content")
+			}
+		})
 	}
 }

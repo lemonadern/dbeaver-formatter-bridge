@@ -207,11 +207,10 @@ func copyProduct(from, to string) error {
 			return os.MkdirAll(target, info.Mode().Perm())
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			link, err := os.Readlink(source)
-			if err != nil {
-				return err
-			}
-			return os.Symlink(link, target)
+			// A copied absolute or escaping relative link could redirect p2
+			// writes to the source product. Reject links rather than trying
+			// to infer which product paths will be mutated by Equinox.
+			return fmt.Errorf("symbolic links are not permitted in a disposable product copy: %s", relative)
 		}
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("unexpected product file type")
@@ -412,4 +411,42 @@ func normalizeProfiles(product string) error {
 		}
 	}
 	return nil
+}
+
+func TestCopyProductRejectsSourceLinks(t *testing.T) {
+	for _, name := range []string{"configuration", "p2", "plugins/bundle.jar"} {
+		t.Run(strings.ReplaceAll(name, "/", "-"), func(t *testing.T) {
+			scratch := t.TempDir()
+			source := filepath.Join(scratch, "source")
+			outside := filepath.Join(scratch, "outside")
+			target := filepath.Join(scratch, "copy")
+			if err := os.MkdirAll(outside, 0700); err != nil {
+				t.Fatal(err)
+			}
+			marker := filepath.Join(outside, "marker")
+			if err := os.WriteFile(marker, []byte("source unchanged"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			link := filepath.Join(source, filepath.FromSlash(name))
+			if err := os.MkdirAll(filepath.Dir(link), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, link); err != nil {
+				if runtime.GOOS == "windows" {
+					t.Skipf("creating symlinks requires host privileges: %v", err)
+				}
+				t.Fatal(err)
+			}
+			if err := copyProduct(source, target); err == nil || !strings.Contains(err.Error(), "symbolic links") {
+				t.Fatalf("copy accepted source link: %v", err)
+			}
+			if _, err := os.Lstat(filepath.Join(target, filepath.FromSlash(name))); !os.IsNotExist(err) {
+				t.Fatalf("unsafe link was copied: %v", err)
+			}
+			data, err := os.ReadFile(marker)
+			if err != nil || string(data) != "source unchanged" {
+				t.Fatal("source link target changed")
+			}
+		})
+	}
 }

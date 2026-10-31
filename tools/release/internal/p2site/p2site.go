@@ -73,7 +73,7 @@ func Flatten(archive []byte, version, baseURL string) (map[string][]byte, error)
 	if err != nil {
 		return nil, err
 	}
-	if err = validXML(contentXML); err != nil {
+	if err = checkContent(contentXML, version); err != nil {
 		return nil, err
 	}
 	rewritten, err := rewriteMappings(artifactXML, baseURL)
@@ -322,4 +322,102 @@ func Composite(children []string) (map[string][]byte, error) {
 		"compositeContent.xml":   create("compositeMetadata", "org.eclipse.equinox.internal.p2.metadata.repository.CompositeMetadataRepository"),
 		"compositeArtifacts.xml": create("compositeArtifact", "org.eclipse.equinox.internal.p2.artifact.repository.CompositeArtifactRepository"),
 	}, nil
+}
+
+// checkContent binds installable units and artifact references to the exact
+// plugin/feature pair verified by checkArtifacts. Other metadata-only units
+// (the category and Java execution environment) may not introduce artifacts.
+func checkContent(data []byte, version string) error {
+	type capability struct {
+		Namespace string `xml:"namespace,attr"`
+		Name      string `xml:"name,attr"`
+		Version   string `xml:"version,attr"`
+		Range     string `xml:"range,attr"`
+	}
+	type unit struct {
+		ID        string       `xml:"id,attr"`
+		Version   string       `xml:"version,attr"`
+		Artifacts []artifact   `xml:"artifacts>artifact"`
+		Provides  []capability `xml:"provides>provided"`
+		Requires  []capability `xml:"requires>required"`
+	}
+	var repo struct {
+		XMLName xml.Name `xml:"repository"`
+		Units   []unit   `xml:"units>unit"`
+	}
+	if err := xml.Unmarshal(data, &repo); err != nil {
+		return err
+	}
+	required := map[string]bool{pluginID: false, pluginID + ".feature.feature.jar": false, pluginID + ".feature.feature.group": false}
+	seen := map[string]bool{}
+	refs := 0
+	for _, u := range repo.Units {
+		if seen[u.ID] {
+			return fmt.Errorf("duplicate p2 content unit: %s", u.ID)
+		}
+		seen[u.ID] = true
+		if _, ok := required[u.ID]; ok {
+			if u.Version != version {
+				return fmt.Errorf("p2 content unit version mismatch: %s", u.ID)
+			}
+			required[u.ID] = true
+			self := 0
+			for _, p := range u.Provides {
+				if p.Namespace == "org.eclipse.equinox.p2.iu" && p.Name == u.ID {
+					if p.Version != version {
+						return fmt.Errorf("p2 content capability version mismatch")
+					}
+					self++
+				}
+			}
+			if self != 1 {
+				return fmt.Errorf("missing p2 self capability: %s", u.ID)
+			}
+			switch u.ID {
+			case pluginID, pluginID + ".feature.feature.jar":
+				if len(u.Artifacts) != 1 {
+					return fmt.Errorf("expected one p2 content artifact reference")
+				}
+				a := u.Artifacts[0]
+				id, class := pluginID, "osgi.bundle"
+				if u.ID != pluginID {
+					id += ".feature"
+					class = "org.eclipse.update.feature"
+				}
+				if a.ID != id || a.Classifier != class || a.Version != version {
+					return fmt.Errorf("p2 content artifact reference mismatch")
+				}
+				refs++
+			case pluginID + ".feature.feature.group":
+				if len(u.Artifacts) != 0 {
+					return fmt.Errorf("feature group must not introduce artifacts")
+				}
+				dependencies := map[string]bool{pluginID: false, pluginID + ".feature.feature.jar": false}
+				for _, r := range u.Requires {
+					if _, ok := dependencies[r.Name]; ok && r.Namespace == "org.eclipse.equinox.p2.iu" {
+						if dependencies[r.Name] || r.Range != "["+version+","+version+"]" {
+							return fmt.Errorf("feature group dependency mismatch")
+						}
+						dependencies[r.Name] = true
+					}
+				}
+				for id, found := range dependencies {
+					if !found {
+						return fmt.Errorf("feature group missing dependency: %s", id)
+					}
+				}
+			}
+		} else if len(u.Artifacts) != 0 {
+			return fmt.Errorf("unexpected p2 content artifact owner: %s", u.ID)
+		}
+	}
+	for id, found := range required {
+		if !found {
+			return fmt.Errorf("missing p2 content unit: %s", id)
+		}
+	}
+	if refs != 2 {
+		return fmt.Errorf("expected two p2 content artifact references")
+	}
+	return nil
 }
