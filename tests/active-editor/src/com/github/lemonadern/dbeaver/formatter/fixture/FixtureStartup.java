@@ -83,8 +83,6 @@ public final class FixtureStartup implements IStartup {
         } else {
             ui(() -> null);
         }
-        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".ui-ready"), "ready\n", StandardCharsets.UTF_8);
-        pass("workbench UI ready for initial default-indent RPC");
         var workspace = DBWorkbench.getPlatform().getWorkspace().getAbsolutePath();
         Path registry = workspace.resolve(".metadata/dbeaver-instance.properties");
         for (int i = 0; i < 120; i++) {
@@ -98,9 +96,16 @@ public final class FixtureStartup implements IStartup {
         endpoint = URI.create("http://127.0.0.1:" + props.getProperty(portKey) + "/handleCommandLine");
         // Wait until the registered HTTP service accepts commands.
         for (int i = 0; ; i++) {
-            try { request("{\"version\":1,\"sql\":\"select 1\"}"); break; }
+            try {
+                JsonObject first = request("{\"version\":1,\"sql\":\"select 1\"}");
+                require(first.has("sql") && first.get("version").getAsInt() == 1,
+                    "first default-indent RPC returned an application error");
+                break;
+            }
             catch (Exception e) { if (i == 60) throw e; Thread.sleep(500); }
         }
+        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".ui-ready"), "ready\n", StandardCharsets.UTF_8);
+        pass("first default-indent RPC initialized editor preferences successfully");
         IWorkbenchPage page = ui(() -> {
             var workbench = PlatformUI.getWorkbench();
             var intro = workbench.getIntroManager().getIntro();
