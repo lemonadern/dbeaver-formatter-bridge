@@ -1,0 +1,31 @@
+name: Release queue validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/release.yml'
+      - '.github/workflows/build-test.yml'
+      - '.github/workflows/release-queue-probe.yml'
+      - 'tools/release/**'
+      - 'scripts/release.go'
+
+permissions:
+  contents: read
+
+jobs:
+  queued:
+    name: Queue / ${{ matrix.slot }}
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        slot: [1, 2, 3]
+    concurrency:
+      group: release-queue-probe-${{ github.run_id }}
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Allow the other two jobs to wait in the same group
+        run: sleep 20

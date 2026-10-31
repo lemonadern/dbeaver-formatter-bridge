@@ -127,3 +127,31 @@ npm --prefix extensions/vscode run test:vsix
 この場合は `activeEditor` と `global` を、CLI 単体の出力と比較します。
 Windows CI は配布物に含まれないテスト用 SQL タブを使うため、通常の SQL エディタの初期化や実 DB の SQL 方言まで確認したことにはなりません。
 普段使う VS Code へ勝手に拡張を導入することもありません。
+
+## リリース用ツールのテスト
+
+```sh
+go run ./scripts/release.go check
+go -C tools/release test -race -timeout 120s ./...
+```
+
+対象別の版更新、定義の不一致、原稿の欠落と雛形、失敗時の復元、対象の annotated tag だけの push を確認します。
+タグ試験は一時 bare repository だけを使い、本番タグを作りません。
+公開処理は模擬 GitHub API で、下書き、部分添付からの復旧、公開済み版の不変性、破損ファイル、期限切れ artifact を確認します。
+PR の CI では、実際にビルドして各 OS で確認した配布物を `collect` で集約し、対象別のファイル一覧とチェックサム、内部バージョン、ライセンス、CLI のビルド来歴を検証します。
+本番のタグ起動と公開は、変更をマージした後の次回リリースで確認します。
+
+## p2 の HTTP 導入と更新
+
+Windows CI の `p2-site.ps1` は、専用に展開した DBeaver をさらに一時コピーして試験します。
+公開済み正式版の ZIP をチェックサム付きで取得し、旧版の導入後にローカル HTTP の composite と平坦な配布元から試験用新版へ更新します。
+試験用新版は bundle、feature、メタデータの版を揃え、本番タグや Release は作りません。
+個別 JAR の HTTP 取得と p2 director の更新結果まで検証し、既存 DBeaver の構成やワークスペースは変更しません。
+
+同じ Windows ジョブで `releases/compatibility.json` の最小対応版に固定した旧 CLI、旧プラグイン、旧 VSIX と新規成果物の組合せも試験します。
+公開後の Pages の確認は `verify-p2-url.go` が固定 URL の索引と公開元の配布物を取得して行います。
+この取得処理の改変検出は次で単体試験できます。
+
+```sh
+go test ./scripts/ci/verify-p2-url.go ./scripts/ci/verify-p2-url_test.go
+```

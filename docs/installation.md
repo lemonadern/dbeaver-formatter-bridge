@@ -8,10 +8,31 @@ VS Code は[専用拡張の導入手順](../extensions/vscode/README.md)、ほ�
 
 [GitHub Releases](https://github.com/lemonadern/dbeaver-formatter-bridge/releases) から、プラグインの ZIP と、自分の OS と CPU に合う CLI の ZIP を取得します。
 VS Code 拡張を使う場合は `.vsix` も取得してください。
+新方式のリリースでは `DBeaver plugin`、`CLI`、`VS Code extension` の対象別 Release から取得します。
+それぞれの版は独立しているため、リリースノートの対応範囲も確認してください。
 `SHA256SUMS` で配布ファイルのチェックサムを確認できます。
 開発中のビルドは [CI の成果物](ci.md#配布物を取得する)から取得できます。
 
 ## DBeaver プラグイン
+
+### 更新サイトから導入する
+
+最初のプラグイン専用 Release と Pages 配信の完了後、次の固定 URL を使えます。
+初回の共有 `v0.1.0` だけが公開されている段階では、後述の ZIP を使ってください。
+
+```text
+https://lemonadern.github.io/dbeaver-formatter-bridge/updates/
+```
+
+1. DBeaver の **Help → Install New Software → Add** を開きます。
+2. Location に上の URL を登録します。
+3. DBeaver Formatter Bridge を選んで導入し、再起動します。
+
+新版が公開されたら同じ更新サイトを選び、新しい版を導入します。
+正式 `0.1.0` を ZIP から導入済みの場合も、URL を追加して新版へ更新できます。
+配布ファイルは GitHub Releases から取得するため、GitHub へのネットワーク接続が必要です。
+
+### ZIP から導入する
 
 1. DBeaver の **Help → Install New Software** を開きます。
 2. **Add → Archive** でプラグイン導入用 ZIP を選びます。
@@ -32,11 +53,13 @@ Go を使う場合は、ZIP の代わりに以下で CLI をインストール�
 Go 1.27.2 以上が必要です。
 
 ```sh
-go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@v0.1.0
+go install github.com/lemonadern/dbeaver-formatter-bridge/cli/cmd/dbeaver-format@latest
 ```
 
 インストール先の `GOBIN`（未指定なら `GOPATH/bin`、通常はホームディレクトリの `go/bin`）を PATH に追加してください。
-Go モジュールは `cli/` にあるため、上記の版は `cli/v0.1.0` タグに対応します。
+特定の版に固定する場合は `@latest` を `@vX.Y.Z` に置き換えます。
+Go モジュールは `cli/` にあるため、`@vX.Y.Z` は `cli/vX.Y.Z` タグに対応します。
+プラグインと VS Code 拡張の版は独立しており、対応範囲は各対象の Release を確認してください。
 CLI を入れても、DBeaver とプラグインは別途必要です。
 
 DBeaver を起動し、ワークスペースを指定して SQL を標準入力へ渡します。

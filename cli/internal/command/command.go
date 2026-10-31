@@ -13,11 +13,13 @@ import (
 
 	"github.com/lemonadern/dbeaver-formatter-bridge/cli/internal/client"
 	"github.com/lemonadern/dbeaver-formatter-bridge/cli/internal/instance"
+	buildversion "github.com/lemonadern/dbeaver-formatter-bridge/cli/internal/version"
 )
 
 func Run(args []string, in io.Reader, out, diagnostics io.Writer) int {
 	fs := flag.NewFlagSet("dbeaver-format", flag.ContinueOnError)
 	fs.SetOutput(diagnostics)
+	showVersion := fs.Bool("version", false, "print the CLI product version")
 	workspace := fs.String("workspace", "", "DBeaver workspace path (required)")
 	connection := fs.String("connection", "", "DBeaver connection ID; default uses global SQL settings")
 	activeEditor := fs.Bool("active-editor", false, "use the connection of the selected SQL editor in DBeaver")
@@ -32,6 +34,16 @@ func Run(args []string, in io.Reader, out, diagnostics io.Writer) int {
 			return 0
 		}
 		return 2
+	}
+	if *showVersion {
+		if len(args) != 1 || args[0] != "--version" && args[0] != "-version" {
+			fmt.Fprintln(diagnostics, "--version must be used alone")
+			return 2
+		}
+		if _, err := fmt.Fprintln(out, buildversion.String()); err != nil {
+			return 1
+		}
+		return 0
 	}
 	fail := func(err error) int { fmt.Fprintln(diagnostics, "dbeaver-format:", err); return 1 }
 	if *workspace == "" || fs.NArg() != 0 || *timeout <= 0 {

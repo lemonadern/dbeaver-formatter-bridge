@@ -59,7 +59,11 @@ func TestSixDistributionArchives(t *testing.T) {
 	var first map[string][]byte = map[string][]byte{}
 	for _, target := range cliTargets {
 		stem := "dbeaver-format-" + target.os + "-" + target.arch
-		archive := stem + ".zip"
+		version, err := os.ReadFile(filepath.Join(root, "cli", "VERSION"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		archive := "dbeaver-format-" + strings.TrimSpace(string(version)) + "-" + target.os + "-" + target.arch + ".zip"
 		data, err := os.ReadFile(filepath.Join(out, archive))
 		if err != nil {
 			t.Fatal(err)
