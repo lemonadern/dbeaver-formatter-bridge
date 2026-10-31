@@ -253,7 +253,29 @@ func writeCollection(files map[string][]byte, expected map[string]bool, out stri
 
 // pagesIndex reconstructs the index from all verified published plugin releases.
 // Source Actions artifacts may expire: only immutable tags and public assets are used.
-func pagesIndex(c *client, out string) error {
+func pagesIndex(c *client, out string) error { return pagesIndexWithProof(c, out, "") }
+func pagesIndexWithProof(c *client, out, proofPath string) error {
+	if proofPath != "" {
+		outputAbs, err := filepath.Abs(out)
+		if err != nil {
+			return err
+		}
+		proofAbs, err := filepath.Abs(proofPath)
+		if err != nil {
+			return err
+		}
+		relative, err := filepath.Rel(outputAbs, proofAbs)
+		if err != nil {
+			return err
+		}
+		if relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+			return fmt.Errorf("Pages proof must be outside the published site directory")
+		}
+		if _, err := os.Lstat(proofPath); !os.IsNotExist(err) {
+			return fmt.Errorf("Pages proof output must not exist")
+		}
+	}
+	proof := map[string]map[string]string{}
 	children := []string{}
 	seen := map[string]bool{}
 	complete := false
@@ -309,6 +331,7 @@ func pagesIndex(c *client, out string) error {
 				return err
 			}
 			children = append(children, base)
+			proof[base] = r.Files
 		}
 		if len(list) < 100 {
 			complete = true
@@ -342,6 +365,25 @@ func pagesIndex(c *client, out string) error {
 		}
 		if err = os.WriteFile(filepath.Join(out, name), body, 0644); err != nil {
 			return err
+		}
+	}
+	if proofPath != "" {
+		data, err := json.MarshalIndent(proof, "", "  ")
+		if err != nil {
+			return err
+		}
+		data = append(data, '\n')
+		f, err := os.OpenFile(proofPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		if err != nil {
+			return err
+		}
+		_, writeErr := f.Write(data)
+		closeErr := f.Close()
+		if writeErr != nil {
+			return writeErr
+		}
+		if closeErr != nil {
+			return closeErr
 		}
 	}
 	return nil

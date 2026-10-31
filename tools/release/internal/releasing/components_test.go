@@ -204,3 +204,50 @@ func TestPagesIndexRefusesDraftPrereleaseLegacyAndWrongProvenance(t *testing.T) 
 		})
 	}
 }
+
+func TestPagesProofBindsAllAPIValidatedAssetsAndRemainsOutsideSite(t *testing.T) {
+	f, e := componentFake(t, "plugin")
+	if err := e.publish("", testRun, 1, f.ids(), false); err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	site := filepath.Join(dir, "site")
+	proofPath := filepath.Join(dir, "proof.json")
+	if err := pagesIndexWithProof(e.client, site, proofPath); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(proofPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var proof map[string]map[string]string
+	if err := json.Unmarshal(raw, &proof); err != nil {
+		t.Fatal(err)
+	}
+	if len(proof) != 1 {
+		t.Fatal(proof)
+	}
+	for base, hashes := range proof {
+		if !strings.Contains(base, "plugin%2Fv"+testVersion) {
+			t.Fatal(base)
+		}
+		if len(hashes) != len(f.data) {
+			t.Fatal("incomplete proof")
+		}
+		for name, data := range f.data {
+			if hashes[name] != digest(data) {
+				t.Fatal("proof not bound to verified API bytes", name)
+			}
+		}
+	}
+	if _, err := os.Stat(filepath.Join(site, "proof.json")); !os.IsNotExist(err) {
+		t.Fatal("proof exposed in published site")
+	}
+	if err := pagesIndexWithProof(e.client, filepath.Join(dir, "second"), proofPath); err == nil {
+		t.Fatal("overwrote existing proof")
+	}
+	inside := filepath.Join(dir, "inside")
+	if err := pagesIndexWithProof(e.client, inside, filepath.Join(inside, "proof.json")); err == nil {
+		t.Fatal("accepted proof inside site")
+	}
+}

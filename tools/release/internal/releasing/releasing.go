@@ -513,6 +513,7 @@ func run(root string, args []string, execute runner) error {
 	component := fs.String("component", "", "plugin, cli or vscode")
 	repo := fs.String("repo", os.Getenv("GITHUB_REPOSITORY"), "owner/repository")
 	output := fs.String("output", "", "GitHub output file")
+	proof := fs.String("proof", "", "optional verified Pages asset hashes file outside site output")
 	input := fs.String("artifacts", "", "cli/plugin/vscode input directories")
 	out := fs.String("out", "", "empty collection output directory")
 	version := fs.String("version", "", "collection version")
@@ -533,7 +534,7 @@ func run(root string, args []string, execute runner) error {
 		if !repoRE.MatchString(*repo) || *out == "" {
 			return fmt.Errorf("pages-index requires --repo and --out")
 		}
-		return pagesIndex(newClient(*repo, execute), *out)
+		return pagesIndexWithProof(newClient(*repo, execute), *out, *proof)
 	}
 	if args[0] == "collect" {
 		if *component != "" {
