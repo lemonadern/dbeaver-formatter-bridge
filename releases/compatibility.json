@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "protocols": [1, 2],
+  "plugin": {
+    "version": "0.1.0",
+    "url": "https://github.com/lemonadern/dbeaver-formatter-bridge/releases/download/v0.1.0/formatter-bridge-update-site-0.1.0.zip",
+    "sha256": "a58dc4eee8b9ff2b3988d3621ef899036f1a40fb22642dc3691975be5464e112"
+  },
+  "cli": {
+    "version": "0.1.0",
+    "url": "https://github.com/lemonadern/dbeaver-formatter-bridge/releases/download/v0.1.0/dbeaver-format-windows-amd64.zip",
+    "sha256": "a1b795a46d8095a9185bd82afb99611a7d6d16c4f1eef3b8171c3ab6322ab7e2"
+  },
+  "vscode": {
+    "version": "0.1.0",
+    "url": "https://github.com/lemonadern/dbeaver-formatter-bridge/releases/download/v0.1.0/dbeaver-formatter-bridge-0.1.0.vsix",
+    "sha256": "cd13563e9b81cff53efd462146049498e35b9de2fa926cafa208bda3d7aa1d1d"
+  }
+}

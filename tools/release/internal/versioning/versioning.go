@@ -22,17 +22,16 @@ var stable = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9
 
 // Validate accepts ordinary release versions, excluding prereleases and aliases.
 func Validate(version string) error {
+	if err := validateStable(version); err != nil {
+		return err
+	}
 	if !stable.MatchString(version) {
 		return fmt.Errorf("version must be X.Y.Z without a prefix, leading zeroes or prerelease suffix")
 	}
 	if major := strings.SplitN(version, ".", 2)[0]; major != "0" && major != "1" {
 		return fmt.Errorf("major versions 2 and above require a Go /vN module-path migration; this release tool currently supports 0.x and 1.x only")
 	}
-	for _, component := range strings.Split(version, ".") {
-		if _, err := strconv.ParseUint(component, 10, 31); err != nil {
-			return fmt.Errorf("version components must fit OSGi's nonnegative 32-bit integers")
-		}
-	}
+
 	return nil
 }
 
@@ -153,7 +152,15 @@ func Prepare(root, version string) error {
 }
 
 func plan(root, version string) ([]change, error) {
-	if err := Validate(version); err != nil {
+	return planComponent(root, version, "")
+}
+
+func planComponent(root, version, component string) ([]change, error) {
+	validate := Validate
+	if component != "" {
+		validate = func(v string) error { return ValidateComponent(component, v) }
+	}
+	if err := validate(version); err != nil {
 		return nil, err
 	}
 	specs := []struct{ name, kind string }{
@@ -168,6 +175,16 @@ func plan(root, version string) ([]change, error) {
 		{"extensions/vscode/package-lock.json", "lock"},
 		{"cli/internal/version/value.go", "go"},
 	}
+	if component != "" {
+		selected := specs[:0]
+		selected = append(selected, struct{ name, kind string }{componentVersionFile(component), "version"})
+		for _, spec := range specs[1:] {
+			if component == "plugin" && strings.HasPrefix(spec.name, "plugin/") || component == "cli" && strings.HasPrefix(spec.name, "cli/") || component == "vscode" && strings.HasPrefix(spec.name, "extensions/vscode/") {
+				selected = append(selected, spec)
+			}
+		}
+		specs = selected
+	}
 	changes := make([]change, 0, len(specs))
 	for _, spec := range specs {
 		name := filepath.Join(root, spec.name)
@@ -179,13 +196,16 @@ func plan(root, version string) ([]change, error) {
 			return nil, fmt.Errorf("version definition must be a regular file: %s", spec.name)
 		}
 		before, err := os.ReadFile(name)
+		if component != "" {
+			before, err = regularRead(root, spec.name)
+		}
 		if err != nil {
 			return nil, err
 		}
 		var after []byte
 		switch spec.kind {
 		case "version":
-			if err = Validate(strings.TrimSpace(string(before))); err == nil {
+			if err = validate(strings.TrimSpace(string(before))); err == nil {
 				after = lineEnding([]byte(version+"\n"), before)
 			}
 		case "go":
@@ -193,7 +213,7 @@ func plan(root, version string) ([]change, error) {
 			match := regexp.MustCompile(`(?m)^const Version = "([^"]+)"\r?$`).FindSubmatch(before)
 			if len(match) != 2 {
 				err = fmt.Errorf("missing generated Version constant")
-			} else if err = Validate(string(match[1])); err == nil {
+			} else if err = validate(string(match[1])); err == nil {
 				after = lineEnding(generated(version), before)
 			}
 		case "pom":
@@ -205,7 +225,7 @@ func plan(root, version string) ([]change, error) {
 				err = fmt.Errorf("expected one Bundle-Version")
 			} else {
 				m := matches[0]
-				if err = Validate(string(before[m[2]:m[3]])); err == nil {
+				if err = validate(string(before[m[2]:m[3]])); err == nil {
 					after = apply(before, []replacement{{m[2], m[3], version}})
 				}
 			}
@@ -262,7 +282,7 @@ func replacePOM(data []byte, version string, parent bool) ([]byte, error) {
 				if trimmed == "" {
 					continue
 				}
-				if err := Validate(trimmed); err != nil {
+				if err := validateStable(trimmed); err != nil {
 					return nil, err
 				}
 				offset := strings.Index(raw, trimmed)
@@ -298,7 +318,7 @@ func replaceFeature(data []byte, version string) ([]byte, error) {
 				if len(m) != 4 {
 					return nil, fmt.Errorf("missing feature version")
 				}
-				if err := Validate(string(raw[m[2]:m[3]])); err != nil {
+				if err := validateStable(string(raw[m[2]:m[3]])); err != nil {
 					return nil, err
 				}
 				spans = append(spans, replacement{start + m[2], start + m[3], version})
@@ -362,7 +382,7 @@ func replaceJSON(data []byte, version string, lock bool) ([]byte, error) {
 				if !ok {
 					return fmt.Errorf("version must be a string")
 				}
-				if err := Validate(old); err != nil {
+				if err := validateStable(old); err != nil {
 					return err
 				}
 				end := int(decoder.InputOffset())
