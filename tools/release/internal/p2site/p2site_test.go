@@ -182,7 +182,7 @@ func TestCompositeDeterministic(t *testing.T) {
 	}
 }
 func TestRejectUnsafeBases(t *testing.T) {
-	for _, base := range []string{"file:/tmp/", "http://example.org/", "https://user:pass@example.org/", "https://example.org/?q=x", "https://example.org/#frag", "https://example.org"} {
+	for _, base := range []string{"file:/tmp/", "http://example.org/", "https://user:pass@example.org/", "https://example.org/?q=x", "https://example.org/#frag", "https://example.org", "https://example.org/plugin%2Fv0.1.0/", "https://example.org/plugin%252Fv0.1.0/"} {
 		if _, err := Flatten(fixture(t), "0.1.0", base); err == nil {
 			t.Fatalf("accepted %q", base)
 		}
@@ -222,5 +222,20 @@ func TestRejectMismatchedContent(t *testing.T) {
 				t.Fatal("accepted mismatched content")
 			}
 		})
+	}
+}
+
+func TestReleaseBasePreservesTagSlash(t *testing.T) {
+	base, err := ReleaseBase("owner/repo", "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base != "https://github.com/owner/repo/releases/download/plugin/v0.2.0/" {
+		t.Fatalf("unexpected release base: %s", base)
+	}
+	for _, encoded := range []string{"https://github.com/owner/repo/releases/download/plugin%2Fv0.2.0/", "https://github.com/owner/repo/releases/download/plugin%252Fv0.2.0/"} {
+		if _, err := Composite([]string{encoded}); err == nil {
+			t.Fatalf("accepted double-escape-prone composite child: %s", encoded)
+		}
 	}
 }

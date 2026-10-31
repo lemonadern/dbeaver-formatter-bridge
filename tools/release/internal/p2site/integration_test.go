@@ -78,9 +78,9 @@ func TestP2DirectorIntegration(t *testing.T) {
 		// Each director invocation is sequential, and all requests finish before the
 		// next invocation mutates the maps.
 		requestMu.Lock()
-		requested[r.URL.Path]++
+		requested[r.URL.EscapedPath()]++
 		defer requestMu.Unlock()
-		b, ok := current[strings.TrimPrefix(r.URL.Path, "/")]
+		b, ok := current[strings.TrimPrefix(r.URL.EscapedPath(), "/")]
 		if !ok {
 			http.NotFound(w, r)
 			return
@@ -102,24 +102,37 @@ func TestP2DirectorIntegration(t *testing.T) {
 	if output, err := importCert.CombinedOutput(); err != nil {
 		t.Fatalf("test truststore: %v %s", err, output)
 	}
-	oldFlat, err := Flatten(legacy, "0.1.0", server.URL+"/old/")
+	// Exercise literal-slash tag paths exactly as production. EscapedPath in
+	// the handler rejects both plugin%252Fv and plugin%2Fv, so URL decoding
+	// cannot hide a regression in composite URI handling.
+	oldBase, err := ReleaseBase("owner/repo", "0.1.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	newBase, err := ReleaseBase("owner/repo", "0.1.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldBase = server.URL + strings.TrimPrefix(oldBase, "https://github.com/owner/repo")
+	newBase = server.URL + strings.TrimPrefix(newBase, "https://github.com/owner/repo")
+	oldFlat, err := Flatten(legacy, "0.1.0", oldBase)
 	if err != nil {
 		t.Fatal(err)
 	}
 	newZIP := bumpFixture(t, legacy, "0.1.0", "0.1.1")
-	newer, err := Flatten(newZIP, "0.1.1", server.URL+"/new/")
+	newer, err := Flatten(newZIP, "0.1.1", newBase)
 	if err != nil {
 		t.Fatal(err)
 	}
 	requestMu.Lock()
 	current = map[string][]byte{}
 	for name, data := range oldFlat {
-		current["old/"+name] = data
+		current["releases/download/plugin/v0.1.0/"+name] = data
 	}
 	for name, data := range newer {
-		current["new/"+name] = data
+		current["releases/download/plugin/v0.1.1/"+name] = data
 	}
-	index, err := Composite([]string{server.URL + "/old/"})
+	index, err := Composite([]string{oldBase})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +170,7 @@ func TestP2DirectorIntegration(t *testing.T) {
 		}
 	}
 	checkInstalled("0.1.0")
-	index, err = Composite([]string{server.URL + "/old/", server.URL + "/new/"})
+	index, err = Composite([]string{oldBase, newBase})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,17 +183,17 @@ func TestP2DirectorIntegration(t *testing.T) {
 	checkInstalled("0.1.1")
 	requestMu.Lock()
 	defer requestMu.Unlock()
-	for _, name := range []string{"/old/content.xml.xz", "/old/artifacts.xml.xz", "/new/content.xml.xz", "/new/artifacts.xml.xz"} {
+	for _, name := range []string{"/releases/download/plugin/v0.1.0/content.xml.xz", "/releases/download/plugin/v0.1.0/artifacts.xml.xz", "/releases/download/plugin/v0.1.1/content.xml.xz", "/releases/download/plugin/v0.1.1/artifacts.xml.xz"} {
 		if requested[name] == 0 {
 			t.Fatalf("XZ metadata not requested: %s", name)
 		}
 	}
-	for _, name := range []string{"/old/content.jar", "/old/artifacts.jar", "/new/content.jar", "/new/artifacts.jar"} {
+	for _, name := range []string{"/releases/download/plugin/v0.1.0/content.jar", "/releases/download/plugin/v0.1.0/artifacts.jar", "/releases/download/plugin/v0.1.1/content.jar", "/releases/download/plugin/v0.1.1/artifacts.jar"} {
 		if requested[name] > 0 {
 			t.Fatalf("p2 fell back from generated XZ to JAR: %s", name)
 		}
 	}
-	for _, path := range []string{"/old/" + pluginID + "_0.1.0.jar", "/new/" + pluginID + "_0.1.1.jar"} {
+	for _, path := range []string{"/releases/download/plugin/v0.1.0/" + pluginID + "_0.1.0.jar", "/releases/download/plugin/v0.1.1/" + pluginID + "_0.1.1.jar"} {
 		if requested[path] == 0 {
 			t.Fatalf("p2 did not fetch JAR %s", path)
 		}
