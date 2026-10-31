@@ -29,6 +29,7 @@ import org.eclipse.ui.IStartup;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IPersistableElement;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.editors.text.EditorsUI;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
@@ -72,6 +73,13 @@ public final class FixtureStartup implements IStartup {
     }
 
     private void test() throws Exception {
+        // The old published plugin can initialize EditorsUI on an RPC thread.
+        // Finish that initialization on the UI thread before either readiness
+        // probe sends a request, including the compatibility run of that plugin.
+        stage = "editor preference initialization";
+        ui(() -> EditorsUI.getPreferenceStore());
+        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".preferences-ready"), "ready\n", StandardCharsets.UTF_8);
+        pass("editor preferences initialized on UI thread");
         var workspace = DBWorkbench.getPlatform().getWorkspace().getAbsolutePath();
         Path registry = workspace.resolve(".metadata/dbeaver-instance.properties");
         for (int i = 0; i < 120; i++) {
@@ -160,6 +168,35 @@ public final class FixtureStartup implements IStartup {
         }
         ui(() -> null);
         require(actualA.equals(expectSQL("recovery after UI timeout", active())), "timeout recovery failed");
+
+        // Give the global-indent regression its own blocked interval so the
+        // active-editor timeout cannot consume its timeout budget.
+        stage = "global indent UI timeout";
+        CompletableFuture<Void> globalStarted = new CompletableFuture<>();
+        CountDownLatch globalRelease = new CountDownLatch(1);
+        Display.getDefault().asyncExec(() -> {
+            globalStarted.complete(null);
+            try { globalRelease.await(15, TimeUnit.SECONDS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            globalStarted.get(5, TimeUnit.SECONDS);
+            JsonObject explicitIndent = request("{\"version\":1,\"sql\":\"select 1\",\"indent\":\"  \"}");
+            require(explicitIndent.has("sql") && explicitIndent.get("version").getAsInt() == 1,
+                "explicit-indent global formatting must not require the UI thread");
+            pass("global explicit indent works while UI is blocked");
+            // The published 0.1.0 plugin predates the UI-thread default-indent fix.
+            if (!Boolean.getBoolean("bridge.fixture.legacy")) {
+                expectError("global default-indent UI timeout", "{\"version\":1,\"sql\":\"select 1\"}", "ui_timeout");
+            }
+        } finally {
+            globalRelease.countDown();
+        }
+        ui(() -> null);
+        JsonObject recoveredDefault = request("{\"version\":1,\"sql\":\"select 1\"}");
+        require(recoveredDefault.has("sql") && recoveredDefault.get("version").getAsInt() == 1,
+            "default-indent global formatting did not recover after the UI timeout");
+        pass("global default indent recovers after UI timeout");
         // CLI path validates its v2 envelope and stdin/stdout against the same live instance.
         stage = "native CLI active mode";
         String cli = System.getProperty("bridge.fixture.cli");
