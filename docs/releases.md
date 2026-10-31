@@ -79,6 +79,8 @@ https://lemonadern.github.io/dbeaver-formatter-bridge/updates/
 Pages には composite の索引だけを置き、正式公開済みの `plugin/vX.Y.Z` Release を参照します。
 各 Release には平坦化した p2 メタデータと JAR を個別添付します。
 JAR は元の配布物と同じバイト列を使い、取得先はその Release の固定 URL にします。
+取得先のタグ部分は `.../releases/download/plugin/vX.Y.Z/` とし、スラッシュを保持します。
+p2 の composite に渡す前に `%2F` へ変換すると Equinox が二重にエンコードするため、この変換は行いません。
 CLI と VSIX の Release、下書き、プレリリース、旧形式の `v0.1.0` は索引に入りません。
 リポジトリ全体の `releases/latest` は対象別の導入先として使いません。
 

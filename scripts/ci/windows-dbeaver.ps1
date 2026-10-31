@@ -127,8 +127,9 @@ try {
     # The extracted application and its p2-managed configuration are disposable.
     # The workspace and user.home are isolated from the CI account as well.
     # Amend only the disposable vendor ini, preserving all existing JVM options.
+    $legacyFixture = if ($UseLegacyPlugin) { 'true' } else { 'false' }
     [IO.File]::AppendAllText((Join-Path $dbeaverHome 'dbeaver.ini'),
-        "`n-Dproduct.config.disable=true`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n-Dbridge.fixture.result=" + $fixtureResult + "`n-Dbridge.fixture.cli=" + ([Uri]::new($cli)).AbsoluteUri + "`n", [Text.UTF8Encoding]::new($false))
+        "`n-Dbridge.fixture.legacy=" + $legacyFixture + "`n-Dproduct.config.disable=true`n-Duser.home=" + (Join-Path $temp 'user-home') + "`n-Dbridge.fixture.result=" + $fixtureResult + "`n-Dbridge.fixture.cli=" + ([Uri]::new($cli)).AbsoluteUri + "`n", [Text.UTF8Encoding]::new($false))
     $gui = Start-TestProcess -NativeDBeaver -Arguments @('-nosplash', '-consoleLog',
         '-data', ([Uri]::new($workspace)).AbsoluteUri)
     $ready = $false
@@ -151,6 +152,14 @@ try {
                 Report ('Startup diagnostic: ' + $safe)
             }
             throw 'DBeaver GUI exited before readiness'
+        }
+        # Wait for a UI dispatch checkpoint. Only the legacy compatibility
+        # fixture warms EditorsUI; the current plugin must initialize it safely
+        # through its first default-indent RPC without fixture assistance.
+        if (-not (Test-Path -LiteralPath ($fixtureResult + '.ui-ready'))) {
+            if (Test-Path -LiteralPath $fixtureResult) { throw 'Fixture failed before workbench UI readiness' }
+            Start-Sleep -Seconds 1
+            continue
         }
         # Never parse, print or upload the RPC registry. The CLI handles it.
         $sql = 'select 1'

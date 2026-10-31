@@ -166,7 +166,7 @@ func TestPagesIndexVerifiesOnlyPublishedPluginReleases(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(data), "releases/download/plugin%2Fv0.2.0/") && !strings.Contains(string(data), "releases/download/plugin/v0.2.0/") {
+	if !strings.Contains(string(data), "releases/download/plugin/v0.2.0/") || strings.Contains(string(data), "%2F") || strings.Contains(string(data), "%252F") {
 		t.Fatal(string(data))
 	}
 	noWrites(t, f)
@@ -228,7 +228,7 @@ func TestPagesProofBindsAllAPIValidatedAssetsAndRemainsOutsideSite(t *testing.T)
 		t.Fatal(proof)
 	}
 	for base, hashes := range proof {
-		if !strings.Contains(base, "plugin%2Fv"+testVersion) {
+		if !strings.Contains(base, "plugin/v"+testVersion) {
 			t.Fatal(base)
 		}
 		if len(hashes) != len(f.data) {

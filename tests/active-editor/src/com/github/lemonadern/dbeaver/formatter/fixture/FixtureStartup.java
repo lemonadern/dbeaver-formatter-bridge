@@ -29,6 +29,7 @@ import org.eclipse.ui.IStartup;
 import org.eclipse.ui.IWorkbenchPage;
 import org.eclipse.ui.IPersistableElement;
 import org.eclipse.ui.PlatformUI;
+import org.eclipse.ui.editors.text.EditorsUI;
 import org.jkiss.dbeaver.ModelPreferences;
 import org.jkiss.dbeaver.model.DBPDataSource;
 import org.jkiss.dbeaver.model.DBPDataSourceContainer;
@@ -72,6 +73,16 @@ public final class FixtureStartup implements IStartup {
     }
 
     private void test() throws Exception {
+        // Only the old published plugin needs preference initialization here.
+        // For the new plugin, leave EditorsUI cold so the first default-indent
+        // RPC exercises the production UI-thread initialization path.
+        stage = "workbench UI readiness";
+        if (Boolean.getBoolean("bridge.fixture.legacy")) {
+            ui(() -> EditorsUI.getPreferenceStore());
+            pass("legacy editor preferences initialized on UI thread");
+        } else {
+            ui(() -> null);
+        }
         var workspace = DBWorkbench.getPlatform().getWorkspace().getAbsolutePath();
         Path registry = workspace.resolve(".metadata/dbeaver-instance.properties");
         for (int i = 0; i < 120; i++) {
@@ -85,9 +96,16 @@ public final class FixtureStartup implements IStartup {
         endpoint = URI.create("http://127.0.0.1:" + props.getProperty(portKey) + "/handleCommandLine");
         // Wait until the registered HTTP service accepts commands.
         for (int i = 0; ; i++) {
-            try { request("{\"version\":1,\"sql\":\"select 1\"}"); break; }
+            try {
+                JsonObject first = request("{\"version\":1,\"sql\":\"select 1\"}");
+                require(first.has("sql") && first.get("version").getAsInt() == 1,
+                    "first default-indent RPC returned an application error");
+                break;
+            }
             catch (Exception e) { if (i == 60) throw e; Thread.sleep(500); }
         }
+        Files.writeString(Path.of(System.getProperty("bridge.fixture.result") + ".ui-ready"), "ready\n", StandardCharsets.UTF_8);
+        pass("first default-indent RPC initialized editor preferences successfully");
         IWorkbenchPage page = ui(() -> {
             var workbench = PlatformUI.getWorkbench();
             var intro = workbench.getIntroManager().getIntro();
@@ -160,6 +178,35 @@ public final class FixtureStartup implements IStartup {
         }
         ui(() -> null);
         require(actualA.equals(expectSQL("recovery after UI timeout", active())), "timeout recovery failed");
+
+        // Give the global-indent regression its own blocked interval so the
+        // active-editor timeout cannot consume its timeout budget.
+        stage = "global indent UI timeout";
+        CompletableFuture<Void> globalStarted = new CompletableFuture<>();
+        CountDownLatch globalRelease = new CountDownLatch(1);
+        Display.getDefault().asyncExec(() -> {
+            globalStarted.complete(null);
+            try { globalRelease.await(15, TimeUnit.SECONDS); }
+            catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        });
+        try {
+            globalStarted.get(5, TimeUnit.SECONDS);
+            JsonObject explicitIndent = request("{\"version\":1,\"sql\":\"select 1\",\"indent\":\"  \"}");
+            require(explicitIndent.has("sql") && explicitIndent.get("version").getAsInt() == 1,
+                "explicit-indent global formatting must not require the UI thread");
+            pass("global explicit indent works while UI is blocked");
+            // The published 0.1.0 plugin predates the UI-thread default-indent fix.
+            if (!Boolean.getBoolean("bridge.fixture.legacy")) {
+                expectError("global default-indent UI timeout", "{\"version\":1,\"sql\":\"select 1\"}", "ui_timeout");
+            }
+        } finally {
+            globalRelease.countDown();
+        }
+        ui(() -> null);
+        JsonObject recoveredDefault = request("{\"version\":1,\"sql\":\"select 1\"}");
+        require(recoveredDefault.has("sql") && recoveredDefault.get("version").getAsInt() == 1,
+            "default-indent global formatting did not recover after the UI timeout");
+        pass("global default indent recovers after UI timeout");
         // CLI path validates its v2 envelope and stdin/stdout against the same live instance.
         stage = "native CLI active mode";
         String cli = System.getProperty("bridge.fixture.cli");

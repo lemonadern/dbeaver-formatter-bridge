@@ -4,6 +4,7 @@
 
 For every user-facing change, update `releases/<component>/unreleased.md` in the same PR.
 The components are `plugin`, `cli`, and `vscode`; shared behavior or protocol changes may affect several components.
+During release preparation, a fix shipping in an already prepared version updates that versioned draft instead; keep the next-version unreleased template empty so the fix is not announced twice.
 Describe observable behavior, installation changes, compatibility requirements and known limitations.
 Pure test, internal refactoring, CI and documentation changes do not require a user-facing entry unless they change distribution or installation behavior.
 Review release-note coverage explicitly before reporting the work complete; automated checks can reject missing drafts but cannot judge whether their content covers every change.
@@ -22,4 +23,5 @@ Preserve the existing shared `v0.1.0` release and tags.
 Use `plugin/vX.Y.Z`, `cli/vX.Y.Z`, and `vscode/vX.Y.Z` for new component releases.
 The CLI tag also identifies the nested Go module; major 2 needs a Go module-path migration.
 Plugin online p2 metadata and offline ZIP metadata have different artifact locations; retain local paths in offline ZIPs.
+Preserve the slash in `plugin/vX.Y.Z` in p2 child URLs. Pre-encoding it as `%2F` makes Equinox encode it again; exercise the production-shaped path in the real p2 integration test.
 Publish only tested artifacts and verify their bytes after download; never replace published assets or force-update published tags.

@@ -28,13 +28,15 @@ const maxSize = 64 << 20
 var releaseVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 var repositoryName = regexp.MustCompile(`^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)
 
-// ReleaseBase returns the fixed asset base for a plugin tag. The slash within
-// the tag is escaped as part of the tag, rather than an asset subdirectory.
+// ReleaseBase returns the fixed asset base for a plugin tag. Keep the slash
+// literal: p2 parses composite child locations with URIUtil.fromString, which
+// would escape an existing percent escape again (plugin%2Fv -> plugin%252Fv).
+// GitHub accepts literal slashes within the tag in release asset URLs.
 func ReleaseBase(repository, version string) (string, error) {
 	if !repositoryName.MatchString(repository) || !releaseVersion.MatchString(version) {
 		return "", fmt.Errorf("invalid repository or plugin version")
 	}
-	return "https://github.com/" + repository + "/releases/download/" + url.PathEscape("plugin/v"+version) + "/", nil
+	return "https://github.com/" + repository + "/releases/download/" + "plugin/v" + version + "/", nil
 }
 
 // Flatten preserves the input archive and JAR bytes, creating online-only p2
@@ -105,6 +107,11 @@ func validateBase(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || !strings.HasSuffix(raw, "/") {
 		return fmt.Errorf("invalid p2 asset base URL")
+	}
+	// Our repository names, plugin tag prefixes and numeric versions require
+	// no path escapes. Composite readers escape existing percent sequences.
+	if strings.Contains(u.EscapedPath(), "%") {
+		return fmt.Errorf("p2 asset base URL must use an unescaped path")
 	}
 	if u.Scheme != "https" && !(u.Scheme == "http" && (u.Hostname() == "127.0.0.1" || u.Hostname() == "localhost" || u.Hostname() == "::1")) {
 		return fmt.Errorf("p2 asset URL must use HTTPS (loopback HTTP permitted for tests)")

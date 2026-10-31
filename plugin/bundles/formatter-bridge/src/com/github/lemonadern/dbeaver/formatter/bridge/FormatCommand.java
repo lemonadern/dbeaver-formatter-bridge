@@ -25,6 +25,7 @@ import org.jkiss.dbeaver.runtime.DBWorkbench;
 import org.jkiss.dbeaver.ui.editors.sql.SQLEditor;
 import picocli.CommandLine;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -121,6 +122,11 @@ public final class FormatCommand extends CLIAbstractSubcommand {
     }
 
     private static SQLFormatterConfiguration activeEditorConfiguration(String indent) throws FormatFailure {
+        return onUIThread(() -> captureActiveEditor(indent));
+    }
+
+    // Only capture UI-owned state here; SQL formatting remains on the RPC thread.
+    private static <T> T onUIThread(Callable<T> action) throws FormatFailure {
         if (!PlatformUI.isWorkbenchRunning()) {
             throw failure("ui_unavailable");
         }
@@ -129,15 +135,21 @@ public final class FormatCommand extends CLIAbstractSubcommand {
             throw failure("ui_unavailable");
         }
         if (Display.getCurrent() == display) {
-            return captureActiveEditor(indent);
+            try {
+                return action.call();
+            } catch (FormatFailure e) {
+                throw e;
+            } catch (Exception e) {
+                throw failure("ui_unavailable");
+            }
         }
-        var result = new CompletableFuture<SQLFormatterConfiguration>();
+        var result = new CompletableFuture<T>();
         try {
             display.asyncExec(() -> {
-                // A timed-out caller must not leave a queued editor lookup behind.
+                // A timed-out caller must not leave queued UI state access behind.
                 if (!result.isDone()) {
                     try {
-                        result.complete(captureActiveEditor(indent));
+                        result.complete(action.call());
                     } catch (Exception e) {
                         result.completeExceptionally(e);
                     }
@@ -232,15 +244,19 @@ public final class FormatCommand extends CLIAbstractSubcommand {
     }
 
     private static String editorIndent() throws FormatFailure {
-        var preferences = EditorsUI.getPreferenceStore();
-        if (!preferences.getBoolean(AbstractDecoratedTextEditorPreferenceConstants.EDITOR_SPACES_FOR_TABS)) {
-            return "\t";
-        }
-        int width = preferences.getInt(AbstractDecoratedTextEditorPreferenceConstants.EDITOR_TAB_WIDTH);
-        if (width < 1 || width > 32) {
-            throw failure("invalid_request");
-        }
-        return " ".repeat(width);
+        return onUIThread(() -> {
+            // EditorsUI can lazily initialize preference/theme listeners. Both
+            // initialization and the indent snapshot belong to the UI thread.
+            var preferences = EditorsUI.getPreferenceStore();
+            if (!preferences.getBoolean(AbstractDecoratedTextEditorPreferenceConstants.EDITOR_SPACES_FOR_TABS)) {
+                return "\t";
+            }
+            int width = preferences.getInt(AbstractDecoratedTextEditorPreferenceConstants.EDITOR_TAB_WIDTH);
+            if (width < 1 || width > 32) {
+                throw failure("invalid_request");
+            }
+            return " ".repeat(width);
+        });
     }
 
     private void error(int version, String code) {
