@@ -2,7 +2,7 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: DBeaver Formatter Bridge
 Bundle-SymbolicName: com.github.lemonadern.dbeaver.formatter.bridge;singleton:=true
-Bundle-Version: 0.1.0
+Bundle-Version: 0.2.0
 Bundle-Vendor: dbeaver-formatter-bridge contributors
 Bundle-RequiredExecutionEnvironment: JavaSE-21
 Require-Bundle: org.jkiss.dbeaver.model;bundle-version="[2.0.0,3.0.0)",

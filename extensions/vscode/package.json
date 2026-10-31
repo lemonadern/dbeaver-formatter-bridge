@@ -2,7 +2,7 @@
   "name": "dbeaver-formatter-bridge",
   "displayName": "DBeaver Formatter Bridge",
   "description": "Format SQL through the formatter in your running DBeaver instance.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "lemonadern",
   "license": "Apache-2.0",
   "repository": {

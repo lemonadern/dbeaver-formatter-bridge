@@ -199,7 +199,9 @@ func TestStagingFailureLeavesAllDefinitionsUnchanged(t *testing.T) {
 }
 
 func TestWindowsCRLFCheckAndPrepare(t *testing.T) {
-	root := rawFixture(t)
+	// Normalize the legacy fixture before applying Windows line endings.
+	// The checkout may contain independently versioned component definitions.
+	root := fixture(t)
 	for _, name := range definitionFiles {
 		file := filepath.Join(root, name)
 		data, err := os.ReadFile(file)
