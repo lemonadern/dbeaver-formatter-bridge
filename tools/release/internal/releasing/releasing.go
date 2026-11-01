@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lemonadern/dbeaver-formatter-bridge/tools/release/internal/versioning"
 )
@@ -148,6 +149,7 @@ type engine struct {
 	component               string
 	client                  *client
 	collector               func(string, string) (map[string]string, error)
+	sleep                   func(time.Duration)
 }
 
 func (e *engine) verifyTags() error {
@@ -430,6 +432,7 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 		fmt.Println("PASS: release staging verified; no release writes performed")
 		return nil
 	}
+	created := false
 	if rel == nil {
 		body, err := notes(e.client.repo, r)
 		if e.component != "" {
@@ -445,9 +448,17 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 		if _, err = e.client.run([]string{"release", "create", e.tag, "--repo", e.client.repo, "--draft", "--verify-tag", "--target", e.sha, "--title", releaseTitle(e.component, e.version), "--notes-file", notesFile}); err != nil {
 			return err
 		}
+		created = true
 	}
 	// Another publisher or manual action may have changed state during staging.
-	rel, check, err := e.inspect()
+	// Only a successful create in this invocation permits waiting for list
+	// visibility. A disappeared existing release must still fail immediately.
+	var check *record
+	if created {
+		rel, check, err = e.inspectAfterCreate()
+	} else {
+		rel, check, err = e.inspect()
+	}
 	if err != nil {
 		return err
 	}
@@ -503,6 +514,29 @@ func (e *engine) publish(input string, runID int64, attempt int, ids map[string]
 	}
 	return e.verifyRemote(final, *record, true)
 }
+
+// inspectAfterCreate tolerates only a temporarily absent newly-created draft.
+// API failures, tag changes and visible invalid/stale provenance are returned
+// immediately. The caller performs its full provenance comparison once visible.
+func (e *engine) inspectAfterCreate() (*release, *record, error) {
+	rel, r, err := e.inspect()
+	for _, delay := range []time.Duration{time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 15 * time.Second, 30 * time.Second} {
+		if err != nil || rel != nil {
+			return rel, r, err
+		}
+		if e.sleep != nil {
+			e.sleep(delay)
+		} else {
+			time.Sleep(delay)
+		}
+		rel, r, err = e.inspect()
+	}
+	if err != nil || rel != nil {
+		return rel, r, err
+	}
+	return nil, nil, fmt.Errorf("newly created release did not become visible after 60 seconds of waiting; rerun to resume the existing draft")
+}
+
 func Run(root string, args []string) error { return run(root, args, command) }
 func run(root string, args []string, execute runner) error {
 	if len(args) == 0 {
